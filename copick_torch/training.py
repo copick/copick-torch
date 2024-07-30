@@ -6,7 +6,7 @@ import mlflow.pytorch
 
 def train_model(model, train_loader, val_loader, lr, logdir_path, log_every_n_iterations, val_check_interval, accumulate_grad_batches, model_name="model", experiment_name="Copick Training"):
     mlflow.set_experiment(experiment_name)
-    with mlflow.start_run() as run:
+    with mlflow.start_run(run_name=model_name) as run:
         # Log model parameters
         mlflow.log_params({
             "learning_rate": lr,
