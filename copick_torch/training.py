@@ -1,7 +1,6 @@
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from pytorch_lightning.loggers import MLFlowLogger
 import mlflow.pytorch
 
 def train_model(model, train_loader, val_loader, lr, logdir_path, log_every_n_iterations, val_check_interval, accumulate_grad_batches, model_name="model", experiment_name="Copick Training"):
@@ -34,13 +33,10 @@ def train_model(model, train_loader, val_loader, lr, logdir_path, log_every_n_it
 
         learning_rate_monitor = LearningRateMonitor(logging_interval="step")
 
-        logger = MLFlowLogger(experiment_name=experiment_name, run_name=model_name)
-
         trainer = pl.Trainer(
             accelerator="gpu",
             devices=1,
             callbacks=[best_checkpoint_callback, last_checkpoint_callback, learning_rate_monitor],
-            logger=logger,
             max_epochs=10000,
             accumulate_grad_batches=accumulate_grad_batches,
             log_every_n_steps=log_every_n_iterations,
