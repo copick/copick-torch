@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 import mlflow.pytorch
 
-def train_model(model, train_loader, val_loader, lr, logdir_path, log_every_n_iterations, val_check_interval, accumulate_grad_batches, model_name="model", experiment_name="Copick Training"):
+def train_model(model, train_loader, val_loader, lr, logdir_path, log_every_n_iterations, val_check_interval, accumulate_grad_batches, max_epochs=10000, model_name="model", experiment_name="Copick Training"):
     mlflow.set_experiment(experiment_name)
     with mlflow.start_run(run_name=model_name) as run:
         # Log model parameters
@@ -37,7 +37,7 @@ def train_model(model, train_loader, val_loader, lr, logdir_path, log_every_n_it
             accelerator="gpu",
             devices=1,
             callbacks=[best_checkpoint_callback, last_checkpoint_callback, learning_rate_monitor],
-            max_epochs=10000,
+            max_epochs=max_epochs,
             accumulate_grad_batches=accumulate_grad_batches,
             log_every_n_steps=log_every_n_iterations,
             val_check_interval=val_check_interval,
