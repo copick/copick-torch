@@ -1,4 +1,4 @@
-from morphospaces.datasets import CopickDataset
+from copick_torch.copick import CopickDataset
 
 def load_dataset(copick_config_path, run_names, tomo_type, user_id, session_id, segmentation_type, voxel_spacing, transform, patch_shape, patch_stride, patch_filter_key, patch_threshold, store_unique_label_values=True):
     return CopickDataset.from_copick_project(

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "copick-torch"
+version = "0.0.1"
+description = "Copick Torch Integration"
+dependencies = [
+    "torch",
+    "pytorch-lightning",
+    "monai",
+    "dask",
+    "einops",
+    "h5py",
+    "magicgui",
+    "numpy<2",
+    "qtpy",
+    "rich",
+    "scikit-image",
+    "scipy",
+    "tensorboard",
+    "mrcfile",
+    "morphospaces @ git+https://github.com/kephale/morphospaces.git@copick",
+    "copick @ git+https://github.com/copick/copick.git"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov"
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.envs.default]
+dependencies = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
