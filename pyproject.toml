@@ -17,7 +17,10 @@ dependencies = [
     "scikit-image",
     "scipy",
     "mrcfile",
-    "copick"
+    "copick",
+    "pandas>=2.2.3",
+    "matplotlib>=3.10.1",
+    "pyarrow>=19.0.1",
 ]
 
 [project.optional-dependencies]

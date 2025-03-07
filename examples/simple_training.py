@@ -67,9 +67,10 @@ def main():
     # Move to GPU if available
     device = torch.device(
         'cuda' if torch.cuda.is_available() else
-        'mps' if torch.backends.mps.is_available() else
         'cpu'
     )
+    #         'mps' if torch.backends.mps.is_available() else
+    # mps still doesnt have max pool 3d
 
     model = model.to(device)
 
