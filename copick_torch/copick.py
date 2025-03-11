@@ -320,7 +320,7 @@ class CopickDataset(Dataset):
             # Process picks
             run_particle_coords = []  # Store coordinates for this run
             
-            for picks in run.picks:
+            for picks in run.get_picks(portal_meta_query={'ground_truth_status': True}):
                 if not picks.from_tool:
                     continue
                     
