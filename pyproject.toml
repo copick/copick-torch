@@ -8,21 +8,19 @@ version = "0.0.1"
 description = "Copick Torch Integration"
 dependencies = [
     "torch",
-    "pytorch-lightning",
     "monai",
     "dask",
     "einops",
     "h5py",
-    "magicgui",
     "numpy<2",
-    "qtpy",
     "rich",
     "scikit-image",
     "scipy",
-    "tensorboard",
     "mrcfile",
-    "morphospaces @ git+https://github.com/kephale/morphospaces.git@copick",
-    "copick @ git+https://github.com/copick/copick.git"
+    "copick",
+    "pandas>=2.2.3",
+    "matplotlib>=3.10.1",
+    "pyarrow>=19.0.1",
 ]
 
 [project.optional-dependencies]
