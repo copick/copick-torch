@@ -710,82 +710,134 @@ class CopickDataset(Dataset):
         
         return distribution
     
-    def export_to_parquet(self, output_path):
-        """Export dataset to parquet format."""
-        if not self._subvolumes:
-            raise ValueError("No data to export")
+    def extract_from_region(self, x_range, y_range, z_range, tomo_type='raw'):
+        """Extract a specific region from a tomogram.
         
-        records = []
-        for i, (subvol, mol_id, is_bg) in enumerate(zip(self._subvolumes, self._molecule_ids, self._is_background)):
-            record = {
-                'subvolume': subvol.tobytes(),
-                'shape': list(subvol.shape),
-                'molecule_id': mol_id,
-                'is_background': is_bg,
-                'key': "background" if is_bg else self._keys[mol_id]
-            }
-            records.append(record)
-        
-        df = pd.DataFrame(records)
-        
-        # Make directory if it doesn't exist
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
-        # Save to parquet
-        df.to_parquet(output_path, index=False)
-        
-        # Save metadata
-        metadata_path = output_path.replace('.parquet', '_metadata.parquet')
-        metadata = {
-            'export_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'total_samples': len(records),
-            'unique_molecules': len(self._keys),
-            'boxsize': self.boxsize,
-            'include_background': self.include_background,
-            'background_samples': sum(self._is_background),
-            'class_keys': self._keys
-        }
-        pd.DataFrame([metadata]).to_parquet(metadata_path, index=False)
-        
-        print(f"Dataset exported to {output_path}")
-        print(f"Metadata saved to {metadata_path}")
+        Args:
+            x_range: Tuple of (min_x, max_x) in voxel space
+            y_range: Tuple of (min_y, max_y) in voxel space
+            z_range: Tuple of (min_z, max_z) in voxel space
+            tomo_type: Type of tomogram to extract from ('raw' or 'filtered')
+            
+        Returns:
+            A numpy array containing the extracted region
+        """
+        # Validate ranges
+        if not all(isinstance(r, tuple) and len(r) == 2 for r in [x_range, y_range, z_range]):
+            raise ValueError("Range parameters must be tuples of (min, max)")
+            
+        # Get tomogram data
+        try:
+            root = copick.from_file(self.config_path)
+            if not root.runs:
+                raise ValueError("No runs found in the copick project")
+                
+            # Use the first run by default
+            run = root.runs[0]
+            
+            # Get the tomogram based on voxel spacing
+            tomogram = run.get_voxel_spacing(self.voxel_spacing).tomograms[0]
+            
+            # Get the appropriate tomogram type
+            if tomo_type == 'raw':
+                tomogram_array = tomogram.numpy()
+            elif tomo_type == 'filtered':
+                # Check if filtered data is available
+                if hasattr(tomogram, 'filtered') and tomogram.filtered is not None:
+                    tomogram_array = tomogram.filtered.numpy()
+                else:
+                    print("Warning: Filtered tomogram not available, using raw tomogram instead")
+                    tomogram_array = tomogram.numpy()
+            else:
+                raise ValueError(f"Invalid tomogram type: {tomo_type}. Must be 'raw' or 'filtered'")
+                
+            # Extract the requested region
+            min_x, max_x = x_range
+            min_y, max_y = y_range
+            min_z, max_z = z_range
+            
+            # Convert to integer indices and ensure they're within bounds
+            min_z = max(0, int(min_z))
+            max_z = min(tomogram_array.shape[0], int(max_z))
+            min_y = max(0, int(min_y))
+            max_y = min(tomogram_array.shape[1], int(max_y))
+            min_x = max(0, int(min_x))
+            max_x = min(tomogram_array.shape[2], int(max_x))
+            
+            # Extract the region
+            region = tomogram_array[min_z:max_z, min_y:max_y, min_x:max_x]
+            
+            if region.size == 0:
+                raise ValueError("Extracted region is empty. Check range parameters.")
+                
+            return region
+            
+        except Exception as e:
+            print(f"Error extracting region from tomogram: {str(e)}")
+            raise
 
-    def export_to_parquet(self, output_path):
-        """Export dataset to parquet format."""
-        if not self._subvolumes:
-            raise ValueError("No data to export")
+    def extract_from_region(self, x_range, y_range, z_range, tomo_type='raw'):
+        """Extract a specific region from a tomogram.
         
-        records = []
-        for i, (subvol, mol_id, is_bg) in enumerate(zip(self._subvolumes, self._molecule_ids, self._is_background)):
-            record = {
-                'subvolume': subvol.tobytes(),
-                'shape': list(subvol.shape),
-                'molecule_id': mol_id,
-                'is_background': is_bg,
-                'key': "background" if is_bg else self._keys[mol_id]
-            }
-            records.append(record)
-        
-        df = pd.DataFrame(records)
-        
-        # Make directory if it doesn't exist
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
-        # Save to parquet
-        df.to_parquet(output_path, index=False)
-        
-        # Save metadata
-        metadata_path = output_path.replace('.parquet', '_metadata.parquet')
-        metadata = {
-            'export_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'total_samples': len(records),
-            'unique_molecules': len(self._keys),
-            'boxsize': self.boxsize,
-            'include_background': self.include_background,
-            'background_samples': sum(self._is_background),
-            'class_keys': self._keys
-        }
-        pd.DataFrame([metadata]).to_parquet(metadata_path, index=False)
-        
-        print(f"Dataset exported to {output_path}")
-        print(f"Metadata saved to {metadata_path}")
+        Args:
+            x_range: Tuple of (min_x, max_x) in voxel space
+            y_range: Tuple of (min_y, max_y) in voxel space
+            z_range: Tuple of (min_z, max_z) in voxel space
+            tomo_type: Type of tomogram to extract from ('raw' or 'filtered')
+            
+        Returns:
+            A numpy array containing the extracted region
+        """
+        # Validate ranges
+        if not all(isinstance(r, tuple) and len(r) == 2 for r in [x_range, y_range, z_range]):
+            raise ValueError("Range parameters must be tuples of (min, max)")
+            
+        # Get tomogram data
+        try:
+            root = copick.from_file(self.config_path)
+            if not root.runs:
+                raise ValueError("No runs found in the copick project")
+                
+            # Use the first run by default
+            run = root.runs[0]
+            
+            # Get the tomogram based on voxel spacing
+            tomogram = run.get_voxel_spacing(self.voxel_spacing).tomograms[0]
+            
+            # Get the appropriate tomogram type
+            if tomo_type == 'raw':
+                tomogram_array = tomogram.numpy()
+            elif tomo_type == 'filtered':
+                # Check if filtered data is available
+                if hasattr(tomogram, 'filtered') and tomogram.filtered is not None:
+                    tomogram_array = tomogram.filtered.numpy()
+                else:
+                    print("Warning: Filtered tomogram not available, using raw tomogram instead")
+                    tomogram_array = tomogram.numpy()
+            else:
+                raise ValueError(f"Invalid tomogram type: {tomo_type}. Must be 'raw' or 'filtered'")
+                
+            # Extract the requested region
+            min_x, max_x = x_range
+            min_y, max_y = y_range
+            min_z, max_z = z_range
+            
+            # Convert to integer indices and ensure they're within bounds
+            min_z = max(0, int(min_z))
+            max_z = min(tomogram_array.shape[0], int(max_z))
+            min_y = max(0, int(min_y))
+            max_y = min(tomogram_array.shape[1], int(max_y))
+            min_x = max(0, int(min_x))
+            max_x = min(tomogram_array.shape[2], int(max_x))
+            
+            # Extract the region
+            region = tomogram_array[min_z:max_z, min_y:max_y, min_x:max_x]
+            
+            if region.size == 0:
+                raise ValueError("Extracted region is empty. Check range parameters.")
+                
+            return region
+            
+        except Exception as e:
+            print(f"Error extracting region from tomogram: {str(e)}")
+            raise
