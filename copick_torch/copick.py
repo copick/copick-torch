@@ -48,10 +48,14 @@ class CopickDataset(Dataset):
         self.include_background = include_background
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
+        self.patch_strategy = patch_strategy
         
         # Validate parameters
         if self.cache_format not in ["pickle", "parquet"]:
             raise ValueError("cache_format must be either 'pickle' or 'parquet'")
+            
+        if self.patch_strategy not in ["centered", "random", "jittered"]:
+            raise ValueError("patch_strategy must be one of 'centered', 'random', or 'jittered'")
         
         # Initialize dataset
         self._set_random_seed()
@@ -255,7 +259,6 @@ class CopickDataset(Dataset):
 
     def _extract_subvolume_with_validation(self, tomogram_array, x, y, z):
         """Extract a subvolume with validation checks, applying the selected patch strategy."""
-        """Extract a subvolume with validation checks."""
         half_box = np.array(self.boxsize) // 2
         
         # Apply patch strategy
