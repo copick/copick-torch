@@ -11,7 +11,7 @@ from datetime import datetime
 import logging
 from collections import Counter
 from typing import Dict, List, Tuple, Union, Optional, Any
-from torch.utils.data import Dataset, ConcatDataset
+from torch.utils.data import Dataset, ConcatDataset, Subset
 from scipy.ndimage import gaussian_filter
 
 class CopickDataset(Dataset):
@@ -709,6 +709,67 @@ class CopickDataset(Dataset):
                 distribution[self._keys[cls_idx]] = count
         
         return distribution
+        
+    def stratified_split(self, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, seed=None):
+        """Split the dataset into train, validation, and test sets while preserving class distributions.
+        
+        Args:
+            train_ratio: Proportion of data to use for training
+            val_ratio: Proportion of data to use for validation
+            test_ratio: Proportion of data to use for testing
+            seed: Random seed for reproducibility
+            
+        Returns:
+            Tuple of (train_dataset, val_dataset, test_dataset) as Subset objects
+        """
+        # Validate ratios
+        if not np.isclose(train_ratio + val_ratio + test_ratio, 1.0):
+            raise ValueError("Ratios must sum to 1.0")
+            
+        # Set random seed if provided
+        if seed is not None:
+            np.random.seed(seed)
+            
+        # Get indices for each class, including background if present
+        class_indices = {}
+        for i, mol_id in enumerate(self._molecule_ids):
+            if mol_id not in class_indices:
+                class_indices[mol_id] = []
+            class_indices[mol_id].append(i)
+            
+        # Shuffle indices for each class
+        for mol_id in class_indices:
+            np.random.shuffle(class_indices[mol_id])
+            
+        # Split indices for each class according to ratios
+        train_indices = []
+        val_indices = []
+        test_indices = []
+        
+        for mol_id, indices in class_indices.items():
+            n_samples = len(indices)
+            n_train = int(n_samples * train_ratio)
+            n_val = int(n_samples * val_ratio)
+            
+            # Assign indices to splits
+            train_indices.extend(indices[:n_train])
+            val_indices.extend(indices[n_train:n_train + n_val])
+            test_indices.extend(indices[n_train + n_val:])
+            
+        # Shuffle the final indices
+        np.random.shuffle(train_indices)
+        np.random.shuffle(val_indices)
+        np.random.shuffle(test_indices)
+        
+        # Create subset datasets
+        train_dataset = Subset(self, train_indices)
+        val_dataset = Subset(self, val_indices)
+        test_dataset = Subset(self, test_indices)
+        
+        # Print split information
+        print(f"Dataset split: {len(train_dataset)} train, {len(val_dataset)} validation, {len(test_dataset)} test samples")
+        
+        return train_dataset, val_dataset, test_dataset
     
     def extract_grid_patches(self, patch_size, overlap=0.25, normalize=True, run_index=0, tomo_type='raw'):
         """Extract a grid of patches from a tomogram.
