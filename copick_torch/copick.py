@@ -159,12 +159,15 @@ class CopickDataset(Dataset):
             print("Processing data and creating cache...")
             self._load_data()
             
-            if self.cache_format == "pickle":
-                self._save_to_pickle(cache_file)
-            else:  # parquet
-                self._save_to_parquet(cache_file)
-                
-            print(f"Cached data saved to {cache_file}")
+            # Only save to cache if we actually loaded some data
+            if len(self._subvolumes) > 0:
+                if self.cache_format == "pickle":
+                    self._save_to_pickle(cache_file)
+                else:  # parquet
+                    self._save_to_parquet(cache_file)
+                print(f"Cached data saved to {cache_file}")
+            else:
+                print("No data loaded, skipping cache creation")
 
     def _load_from_pickle(self, cache_file):
         """Load dataset from pickle cache."""
@@ -237,6 +240,11 @@ class CopickDataset(Dataset):
     def _save_to_parquet(self, cache_file):
         """Save dataset to parquet cache."""
         try:
+            # Check if we have any data to save
+            if len(self._subvolumes) == 0:
+                print("No data to save to parquet")
+                return
+                
             # Prepare records
             records = []
             for i, (subvol, mol_id, is_bg) in enumerate(zip(self._subvolumes, self._molecule_ids, self._is_background)):
@@ -359,7 +367,12 @@ class CopickDataset(Dataset):
             
             # Try to load tomogram
             try:
-                tomogram = run.get_voxel_spacing(self.voxel_spacing).tomograms[0]
+                voxel_spacing_obj = run.get_voxel_spacing(self.voxel_spacing)
+                if voxel_spacing_obj is None or not hasattr(voxel_spacing_obj, 'tomograms') or not voxel_spacing_obj.tomograms:
+                    print(f"No tomograms found for run {run.name} at voxel spacing {self.voxel_spacing}")
+                    continue
+                    
+                tomogram = voxel_spacing_obj.tomograms[0]
                 tomogram_array = tomogram.numpy()
             except Exception as e:
                 print(f"Error loading tomogram for run {run.name}: {str(e)}")
@@ -659,6 +672,10 @@ class CopickDataset(Dataset):
 
     def examples(self):
         """Get example volumes for each class."""
+        # Check if dataset is empty
+        if len(self._subvolumes) == 0 or len(self._molecule_ids) == 0:
+            return None, []
+            
         class_examples = {}
         example_tensors = []
         example_labels = []
@@ -667,22 +684,31 @@ class CopickDataset(Dataset):
         for cls in range(len(self._keys)):
             # Find first index for this class
             for i, mol_id in enumerate(self._molecule_ids):
-                if mol_id == cls and cls not in class_examples and not self._is_background[i]:
-                    volume, _ = self[i]
-                    example_tensors.append(volume)
-                    example_labels.append(cls)
-                    class_examples[cls] = i
-                    break
+                if mol_id == cls and cls not in class_examples and \
+                   (not self._is_background or not self._is_background[i]):
+                    try:
+                        volume, _ = self[i]
+                        example_tensors.append(volume)
+                        example_labels.append(cls)
+                        class_examples[cls] = i
+                        break
+                    except Exception as e:
+                        print(f"Error extracting example for class {cls}: {str(e)}")
+                        continue
         
         # Add background example if present
-        if self.include_background and any(self._is_background):
+        if self.include_background and self._is_background and any(self._is_background):
             # Find first background sample
             for i, is_bg in enumerate(self._is_background):
                 if is_bg:
-                    volume, _ = self[i]
-                    example_tensors.append(volume)
-                    example_labels.append(-1)  # Use -1 for background
-                    break
+                    try:
+                        volume, _ = self[i]
+                        example_tensors.append(volume)
+                        example_labels.append(-1)  # Use -1 for background
+                        break
+                    except Exception as e:
+                        print(f"Error extracting background example: {str(e)}")
+                        continue
         
         if example_tensors:
             return torch.stack(example_tensors), [
