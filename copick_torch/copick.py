@@ -159,12 +159,15 @@ class CopickDataset(Dataset):
             print("Processing data and creating cache...")
             self._load_data()
             
-            if self.cache_format == "pickle":
-                self._save_to_pickle(cache_file)
-            else:  # parquet
-                self._save_to_parquet(cache_file)
-                
-            print(f"Cached data saved to {cache_file}")
+            # Only save to cache if we actually loaded some data
+            if len(self._subvolumes) > 0:
+                if self.cache_format == "pickle":
+                    self._save_to_pickle(cache_file)
+                else:  # parquet
+                    self._save_to_parquet(cache_file)
+                print(f"Cached data saved to {cache_file}")
+            else:
+                print("No data loaded, skipping cache creation")
 
     def _load_from_pickle(self, cache_file):
         """Load dataset from pickle cache."""
@@ -237,6 +240,11 @@ class CopickDataset(Dataset):
     def _save_to_parquet(self, cache_file):
         """Save dataset to parquet cache."""
         try:
+            # Check if we have any data to save
+            if len(self._subvolumes) == 0:
+                print("No data to save to parquet")
+                return
+                
             # Prepare records
             records = []
             for i, (subvol, mol_id, is_bg) in enumerate(zip(self._subvolumes, self._molecule_ids, self._is_background)):
@@ -359,7 +367,12 @@ class CopickDataset(Dataset):
             
             # Try to load tomogram
             try:
-                tomogram = run.get_voxel_spacing(self.voxel_spacing).tomograms[0]
+                voxel_spacing_obj = run.get_voxel_spacing(self.voxel_spacing)
+                if voxel_spacing_obj is None or not hasattr(voxel_spacing_obj, 'tomograms') or not voxel_spacing_obj.tomograms:
+                    print(f"No tomograms found for run {run.name} at voxel spacing {self.voxel_spacing}")
+                    continue
+                    
+                tomogram = voxel_spacing_obj.tomograms[0]
                 tomogram_array = tomogram.numpy()
             except Exception as e:
                 print(f"Error loading tomogram for run {run.name}: {str(e)}")
