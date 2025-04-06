@@ -709,6 +709,46 @@ class CopickDataset(Dataset):
                 distribution[self._keys[cls_idx]] = count
         
         return distribution
+    
+    def export_to_parquet(self, output_path):
+        """Export dataset to parquet format."""
+        if not self._subvolumes:
+            raise ValueError("No data to export")
+        
+        records = []
+        for i, (subvol, mol_id, is_bg) in enumerate(zip(self._subvolumes, self._molecule_ids, self._is_background)):
+            record = {
+                'subvolume': subvol.tobytes(),
+                'shape': list(subvol.shape),
+                'molecule_id': mol_id,
+                'is_background': is_bg,
+                'key': "background" if is_bg else self._keys[mol_id]
+            }
+            records.append(record)
+        
+        df = pd.DataFrame(records)
+        
+        # Make directory if it doesn't exist
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Save to parquet
+        df.to_parquet(output_path, index=False)
+        
+        # Save metadata
+        metadata_path = output_path.replace('.parquet', '_metadata.parquet')
+        metadata = {
+            'export_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'total_samples': len(records),
+            'unique_molecules': len(self._keys),
+            'boxsize': self.boxsize,
+            'include_background': self.include_background,
+            'background_samples': sum(self._is_background),
+            'class_keys': self._keys
+        }
+        pd.DataFrame([metadata]).to_parquet(metadata_path, index=False)
+        
+        print(f"Dataset exported to {output_path}")
+        print(f"Metadata saved to {metadata_path}")
 
     def export_to_parquet(self, output_path):
         """Export dataset to parquet format."""
