@@ -770,6 +770,142 @@ class CopickDataset(Dataset):
         print(f"Dataset split: {len(train_dataset)} train, {len(val_dataset)} validation, {len(test_dataset)} test samples")
         
         return train_dataset, val_dataset, test_dataset
+        
+    def balance_classes(self, method='oversample', target_ratio=1.0, exclude_background=False):
+        """Balance class distribution in the dataset.
+        
+        Args:
+            method: Balancing method to use ('oversample' or 'undersample')
+            target_ratio: For partial balancing (1.0 = perfect balance)
+            exclude_background: Whether to exclude background class from balancing
+            
+        Returns:
+            A new CopickDataset instance with balanced classes
+        """
+        # Validate parameters
+        if method not in ['oversample', 'undersample']:
+            raise ValueError("method must be either 'oversample' or 'undersample'")
+            
+        if target_ratio <= 0 or target_ratio > 1.0:
+            raise ValueError("target_ratio must be between 0 and 1.0")
+            
+        # Get class distribution
+        class_indices = {}
+        for i, mol_id in enumerate(self._molecule_ids):
+            # Skip background class if requested
+            if exclude_background and mol_id == -1:
+                continue
+                
+            if mol_id not in class_indices:
+                class_indices[mol_id] = []
+            class_indices[mol_id].append(i)
+            
+        class_counts = {mol_id: len(indices) for mol_id, indices in class_indices.items()}
+        print("Original class distribution:")
+        for mol_id, count in class_counts.items():
+            class_name = "background" if mol_id == -1 else self._keys[mol_id]
+            print(f"  {class_name}: {count} samples")
+            
+        # Determine target counts
+        if method == 'oversample':
+            # Oversample minority classes to match majority class
+            max_count = max(class_counts.values())
+            target_counts = {}
+            for mol_id, count in class_counts.items():
+                # Calculate the target count for this class
+                # At target_ratio=1.0, all classes will have max_count samples
+                # At lower ratios, there will be partial balancing
+                deficit = max_count - count
+                target_counts[mol_id] = count + int(deficit * target_ratio)
+                
+        else:  # undersample
+            # Undersample majority classes to match minority class
+            min_count = min(class_counts.values())
+            target_counts = {}
+            for mol_id, count in class_counts.items():
+                # Calculate the target count for this class
+                # At target_ratio=1.0, all classes will have min_count samples
+                # At lower ratios, there will be partial balancing towards min_count
+                excess = count - min_count
+                target_counts[mol_id] = count - int(excess * target_ratio)
+                
+        # Create new balanced dataset
+        new_subvolumes = []
+        new_molecule_ids = []
+        new_is_background = []
+        
+        # Process each class
+        for mol_id, indices in class_indices.items():
+            current_count = len(indices)
+            target_count = target_counts[mol_id]
+            
+            if target_count <= current_count:
+                # Undersample: randomly select subset of samples
+                selected_indices = np.random.choice(indices, target_count, replace=False)
+                for idx in selected_indices:
+                    new_subvolumes.append(self._subvolumes[idx].copy())
+                    new_molecule_ids.append(self._molecule_ids[idx])
+                    new_is_background.append(self._is_background[idx])
+            else:
+                # Oversample: use all original samples and add duplicates with augmentation
+                # First, add all original samples
+                for idx in indices:
+                    new_subvolumes.append(self._subvolumes[idx].copy())
+                    new_molecule_ids.append(self._molecule_ids[idx])
+                    new_is_background.append(self._is_background[idx])
+                    
+                # Then add duplicates with augmentation to reach target count
+                n_duplicates = target_count - current_count
+                duplicate_indices = np.random.choice(indices, n_duplicates, replace=True)
+                
+                for idx in duplicate_indices:
+                    # Apply some basic augmentation to avoid exact duplicates
+                    augmented = self._subvolumes[idx].copy()
+                    # Apply random augmentations regardless of self.augment setting
+                    # This is to ensure variety in the duplicated samples
+                    augmented = self._flip(augmented)
+                    if random.random() < 0.5:
+                        augmented = self._brightness(augmented)
+                    if random.random() < 0.5:
+                        augmented = self._intensity_scaling(augmented)
+                    
+                    new_subvolumes.append(augmented)
+                    new_molecule_ids.append(self._molecule_ids[idx])
+                    new_is_background.append(self._is_background[idx])
+        
+        # Convert to numpy arrays
+        new_subvolumes = np.array(new_subvolumes)
+        new_molecule_ids = np.array(new_molecule_ids)
+        new_is_background = np.array(new_is_background)
+        
+        # Create a new dataset with balanced classes
+        balanced_dataset = CopickDataset(
+            config_path=self.config_path,
+            boxsize=self.boxsize,
+            augment=self.augment,
+            cache_dir=None,  # Don't use caching for the balanced dataset
+            seed=self.seed,
+            voxel_spacing=self.voxel_spacing,
+            include_background=self.include_background,
+            patch_strategy=self.patch_strategy
+        )
+        
+        # Replace data with balanced data
+        balanced_dataset._subvolumes = new_subvolumes
+        balanced_dataset._molecule_ids = new_molecule_ids
+        balanced_dataset._is_background = new_is_background
+        balanced_dataset._keys = self._keys.copy()
+        
+        # Compute new sample weights
+        balanced_dataset._compute_sample_weights()
+        
+        # Print final distribution
+        balanced_dist = balanced_dataset.get_class_distribution()
+        print("Balanced class distribution:")
+        for class_name, count in balanced_dist.items():
+            print(f"  {class_name}: {count} samples")
+            
+        return balanced_dataset
     
     def extract_grid_patches(self, patch_size, overlap=0.25, normalize=True, run_index=0, tomo_type='raw'):
         """Extract a grid of patches from a tomogram.
