@@ -710,6 +710,115 @@ class CopickDataset(Dataset):
         
         return distribution
     
+    def extract_grid_patches(self, patch_size, overlap=0.25, normalize=True, run_index=0, tomo_type='raw'):
+        """Extract a grid of patches from a tomogram.
+        
+        Args:
+            patch_size: Int or tuple (z, y, x) for patch dimensions
+            overlap: Overlap ratio between adjacent patches (0-1)
+            normalize: Whether to normalize patches
+            run_index: Index of the run to extract from
+            tomo_type: Type of tomogram to extract from ('raw' or 'filtered')
+            
+        Returns:
+            List of extracted patches and their coordinates (z, y, x)
+        """
+        # Validate parameters
+        if isinstance(patch_size, int):
+            patch_size = (patch_size, patch_size, patch_size)
+        elif len(patch_size) != 3:
+            raise ValueError("patch_size must be an integer or tuple of 3 integers")
+            
+        if overlap < 0 or overlap >= 1:
+            raise ValueError("overlap must be between 0 and 1")
+            
+        # Get tomogram data
+        try:
+            root = copick.from_file(self.config_path)
+            if not root.runs:
+                raise ValueError("No runs found in the copick project")
+                
+            # Use the specified run
+            if run_index >= len(root.runs):
+                raise ValueError(f"Run index {run_index} out of range. Only {len(root.runs)} runs available.")
+                
+            run = root.runs[run_index]
+            
+            # Get the tomogram based on voxel spacing
+            tomogram = run.get_voxel_spacing(self.voxel_spacing).tomograms[0]
+            
+            # Get the appropriate tomogram type
+            if tomo_type == 'raw':
+                tomogram_array = tomogram.numpy()
+            elif tomo_type == 'filtered':
+                # Check if filtered data is available
+                if hasattr(tomogram, 'filtered') and tomogram.filtered is not None:
+                    tomogram_array = tomogram.filtered.numpy()
+                else:
+                    print("Warning: Filtered tomogram not available, using raw tomogram instead")
+                    tomogram_array = tomogram.numpy()
+            else:
+                raise ValueError(f"Invalid tomogram type: {tomo_type}. Must be 'raw' or 'filtered'")
+            
+            # Calculate stride (step size between patches)
+            stride_z = int(patch_size[0] * (1 - overlap))
+            stride_y = int(patch_size[1] * (1 - overlap))
+            stride_x = int(patch_size[2] * (1 - overlap))
+            
+            # Ensure stride is at least 1
+            stride_z = max(1, stride_z)
+            stride_y = max(1, stride_y)
+            stride_x = max(1, stride_x)
+            
+            # Calculate number of patches in each dimension
+            n_patches_z = 1 + (tomogram_array.shape[0] - patch_size[0]) // stride_z
+            n_patches_y = 1 + (tomogram_array.shape[1] - patch_size[1]) // stride_y
+            n_patches_x = 1 + (tomogram_array.shape[2] - patch_size[2]) // stride_x
+            
+            # Initialize results
+            patches = []
+            coordinates = []
+            
+            # Extract patches
+            for iz in range(n_patches_z):
+                z_start = iz * stride_z
+                z_end = z_start + patch_size[0]
+                if z_end > tomogram_array.shape[0]:
+                    continue
+                    
+                for iy in range(n_patches_y):
+                    y_start = iy * stride_y
+                    y_end = y_start + patch_size[1]
+                    if y_end > tomogram_array.shape[1]:
+                        continue
+                        
+                    for ix in range(n_patches_x):
+                        x_start = ix * stride_x
+                        x_end = x_start + patch_size[2]
+                        if x_end > tomogram_array.shape[2]:
+                            continue
+                            
+                        # Extract the patch
+                        patch = tomogram_array[z_start:z_end, y_start:y_end, x_start:x_end].copy()
+                        
+                        # Normalize if requested
+                        if normalize:
+                            # Center and scale to unit variance
+                            patch = (patch - np.mean(patch)) / (np.std(patch) + 1e-6)
+                            
+                        # Record patch and its center coordinates
+                        patches.append(patch)
+                        coordinates.append((z_start + patch_size[0]//2,
+                                         y_start + patch_size[1]//2,
+                                         x_start + patch_size[2]//2))
+            
+            print(f"Extracted {len(patches)} patches of size {patch_size} with {overlap:.2f} overlap")
+            return patches, coordinates
+            
+        except Exception as e:
+            print(f"Error extracting grid patches: {str(e)}")
+            raise
+            
     def extract_from_region(self, x_range, y_range, z_range, tomo_type='raw'):
         """Extract a specific region from a tomogram.
         
@@ -776,6 +885,115 @@ class CopickDataset(Dataset):
             print(f"Error extracting region from tomogram: {str(e)}")
             raise
 
+    def extract_grid_patches(self, patch_size, overlap=0.25, normalize=True, run_index=0, tomo_type='raw'):
+        """Extract a grid of patches from a tomogram.
+        
+        Args:
+            patch_size: Int or tuple (z, y, x) for patch dimensions
+            overlap: Overlap ratio between adjacent patches (0-1)
+            normalize: Whether to normalize patches
+            run_index: Index of the run to extract from
+            tomo_type: Type of tomogram to extract from ('raw' or 'filtered')
+            
+        Returns:
+            List of extracted patches and their coordinates (z, y, x)
+        """
+        # Validate parameters
+        if isinstance(patch_size, int):
+            patch_size = (patch_size, patch_size, patch_size)
+        elif len(patch_size) != 3:
+            raise ValueError("patch_size must be an integer or tuple of 3 integers")
+            
+        if overlap < 0 or overlap >= 1:
+            raise ValueError("overlap must be between 0 and 1")
+            
+        # Get tomogram data
+        try:
+            root = copick.from_file(self.config_path)
+            if not root.runs:
+                raise ValueError("No runs found in the copick project")
+                
+            # Use the specified run
+            if run_index >= len(root.runs):
+                raise ValueError(f"Run index {run_index} out of range. Only {len(root.runs)} runs available.")
+                
+            run = root.runs[run_index]
+            
+            # Get the tomogram based on voxel spacing
+            tomogram = run.get_voxel_spacing(self.voxel_spacing).tomograms[0]
+            
+            # Get the appropriate tomogram type
+            if tomo_type == 'raw':
+                tomogram_array = tomogram.numpy()
+            elif tomo_type == 'filtered':
+                # Check if filtered data is available
+                if hasattr(tomogram, 'filtered') and tomogram.filtered is not None:
+                    tomogram_array = tomogram.filtered.numpy()
+                else:
+                    print("Warning: Filtered tomogram not available, using raw tomogram instead")
+                    tomogram_array = tomogram.numpy()
+            else:
+                raise ValueError(f"Invalid tomogram type: {tomo_type}. Must be 'raw' or 'filtered'")
+            
+            # Calculate stride (step size between patches)
+            stride_z = int(patch_size[0] * (1 - overlap))
+            stride_y = int(patch_size[1] * (1 - overlap))
+            stride_x = int(patch_size[2] * (1 - overlap))
+            
+            # Ensure stride is at least 1
+            stride_z = max(1, stride_z)
+            stride_y = max(1, stride_y)
+            stride_x = max(1, stride_x)
+            
+            # Calculate number of patches in each dimension
+            n_patches_z = 1 + (tomogram_array.shape[0] - patch_size[0]) // stride_z
+            n_patches_y = 1 + (tomogram_array.shape[1] - patch_size[1]) // stride_y
+            n_patches_x = 1 + (tomogram_array.shape[2] - patch_size[2]) // stride_x
+            
+            # Initialize results
+            patches = []
+            coordinates = []
+            
+            # Extract patches
+            for iz in range(n_patches_z):
+                z_start = iz * stride_z
+                z_end = z_start + patch_size[0]
+                if z_end > tomogram_array.shape[0]:
+                    continue
+                    
+                for iy in range(n_patches_y):
+                    y_start = iy * stride_y
+                    y_end = y_start + patch_size[1]
+                    if y_end > tomogram_array.shape[1]:
+                        continue
+                        
+                    for ix in range(n_patches_x):
+                        x_start = ix * stride_x
+                        x_end = x_start + patch_size[2]
+                        if x_end > tomogram_array.shape[2]:
+                            continue
+                            
+                        # Extract the patch
+                        patch = tomogram_array[z_start:z_end, y_start:y_end, x_start:x_end].copy()
+                        
+                        # Normalize if requested
+                        if normalize:
+                            # Center and scale to unit variance
+                            patch = (patch - np.mean(patch)) / (np.std(patch) + 1e-6)
+                            
+                        # Record patch and its center coordinates
+                        patches.append(patch)
+                        coordinates.append((z_start + patch_size[0]//2,
+                                         y_start + patch_size[1]//2,
+                                         x_start + patch_size[2]//2))
+            
+            print(f"Extracted {len(patches)} patches of size {patch_size} with {overlap:.2f} overlap")
+            return patches, coordinates
+            
+        except Exception as e:
+            print(f"Error extracting grid patches: {str(e)}")
+            raise
+            
     def extract_from_region(self, x_range, y_range, z_range, tomo_type='raw'):
         """Extract a specific region from a tomogram.
         
