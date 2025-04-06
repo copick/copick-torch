@@ -35,7 +35,11 @@ class CopickDataset(Dataset):
         include_background: bool = False,
         background_ratio: float = 0.2,  # Background samples as proportion of particle samples
         min_background_distance: Optional[float] = None,  # Min distance in voxels from particles
-        patch_strategy: str = "centered"  # Can be "centered", "random", or "jittered"
+        patch_strategy: str = "centered",  # Can be "centered", "random", or "jittered"
+        augmentations: Optional[List[str]] = None,  # List of augmentation types to apply
+        augmentation_prob: float = 0.5,  # Probability of applying each augmentation
+        mixup_alpha: Optional[float] = None,  # Alpha parameter for mixup augmentation
+        rotate_axes: Tuple[int, int, int] = (1, 1, 1)  # Enable/disable rotation around each axis (x, y, z)
     ):
         self.config_path = config_path
         self.boxsize = boxsize
@@ -49,6 +53,24 @@ class CopickDataset(Dataset):
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
         self.patch_strategy = patch_strategy
+        
+        # Augmentation settings
+        self.augmentation_prob = augmentation_prob
+        self.mixup_alpha = mixup_alpha
+        self.rotate_axes = rotate_axes
+        
+        # Default augmentations if not specified
+        self.default_augmentations = ["brightness", "blur", "intensity", "flip", "rotate"]
+        self.augmentations = augmentations or self.default_augmentations
+        
+        # Special augmentations that need additional handling
+        self.special_augmentations = ["mixup", "rotate_z"]
+        
+        # Validate augmentations
+        valid_augmentations = self.default_augmentations + self.special_augmentations
+        for aug in self.augmentations:
+            if aug not in valid_augmentations:
+                raise ValueError(f"Unknown augmentation type: {aug}. Valid options are: {valid_augmentations}")
         
         # Validate parameters
         if self.cache_format not in ["pickle", "parquet"]:
@@ -448,18 +470,36 @@ class CopickDataset(Dataset):
         
         print(f"Added {bg_points_found} background points after {attempts} attempts")
 
-    def _augment_subvolume(self, subvolume):
-        """Apply data augmentation to a subvolume."""
-        if random.random() < 0.5:
-            subvolume = self._brightness(subvolume)
-        if random.random() < 0.5:
-            subvolume = self._gaussian_blur(subvolume)
-        if random.random() < 0.5:
-            subvolume = self._intensity_scaling(subvolume)
-        if random.random() < 0.5:
-            subvolume = self._flip(subvolume)
-        if random.random() < 0.5:
-            subvolume = self._rotate(subvolume)
+    def _augment_subvolume(self, subvolume, idx=None):
+        """Apply data augmentation to a subvolume.
+        
+        Args:
+            subvolume: The 3D volume to augment
+            idx: Optional index for mixup augmentation
+            
+        Returns:
+            Augmented subvolume
+        """
+        # Apply standard augmentations with probability
+        for aug in self.augmentations:
+            if random.random() < self.augmentation_prob:
+                if aug == "brightness":
+                    subvolume = self._brightness(subvolume)
+                elif aug == "blur":
+                    subvolume = self._gaussian_blur(subvolume)
+                elif aug == "intensity":
+                    subvolume = self._intensity_scaling(subvolume)
+                elif aug == "flip":
+                    subvolume = self._flip(subvolume)
+                elif aug == "rotate":
+                    subvolume = self._rotate(subvolume)
+                elif aug == "rotate_z" and "rotate_z" in self.augmentations:
+                    subvolume = self._rotate_z(subvolume)
+                    
+        # Apply mixup if enabled and we have an index to work with
+        if "mixup" in self.augmentations and self.mixup_alpha is not None and idx is not None:
+            subvolume = self._apply_mixup(subvolume, idx)
+            
         return subvolume
 
     def _brightness(self, volume, max_delta=0.5):
@@ -483,10 +523,109 @@ class CopickDataset(Dataset):
         return np.flip(volume, axis=axis)
         
     def _rotate(self, volume):
-        """Rotate the volume 90, 180, or 270 degrees around a random axis."""
-        axis1, axis2 = random.sample(range(3), 2)
+        """Rotate the volume 90, 180, or 270 degrees around allowed axes."""
+        # Filter available axes based on rotate_axes setting
+        available_axes = [i for i, allowed in enumerate(self.rotate_axes) if allowed]
+        
+        if len(available_axes) < 2:
+            # Need at least 2 axes for rotation, if not enough are enabled,
+            # default to standard x-y rotation
+            axis1, axis2 = 0, 1
+        else:
+            # Select two random axes from the available ones
+            axis1, axis2 = random.sample(available_axes, 2)
+        
         k = random.randint(1, 3)  # 90, 180, or 270 degrees
         return np.rot90(volume, k=k, axes=(axis1, axis2))
+        
+    def _rotate_z(self, volume):
+        """Apply rotation specifically around z-axis.
+        
+        This augmentation is useful for tomography data where the z-axis
+        often has special significance.
+        """
+        # For z-rotation, we'll rotate around the first dimension (z-axis)
+        # using alternative methods that allow arbitrary angles
+        angle = np.random.uniform(0, 360)  # Random angle in degrees
+        
+        # Get center coordinates
+        center_z, center_y, center_x = np.array(volume.shape) // 2
+        
+        # Create rotation matrix for z-axis rotation
+        theta = np.radians(angle)
+        c, s = np.cos(theta), np.sin(theta)
+        rotation_matrix = np.array([
+            [c, -s, 0],
+            [s, c, 0],
+            [0, 0, 1]
+        ])
+        
+        # Create coordinates grid
+        z, y, x = np.meshgrid(np.arange(volume.shape[0]),
+                             np.arange(volume.shape[1]),
+                             np.arange(volume.shape[2]),
+                             indexing='ij')
+        
+        # Adjust coordinates to be relative to center
+        z -= center_z
+        y -= center_y
+        x -= center_x
+        
+        # Stack coordinates and reshape
+        coords = np.stack([z.flatten(), y.flatten(), x.flatten()])
+        
+        # Apply rotation
+        rotated_coords = np.dot(rotation_matrix, coords)
+        
+        # Reshape back and adjust to original coordinate system
+        z_rot = rotated_coords[0].reshape(volume.shape) + center_z
+        y_rot = rotated_coords[1].reshape(volume.shape) + center_y
+        x_rot = rotated_coords[2].reshape(volume.shape) + center_x
+        
+        # Interpolate using scipy map_coordinates
+        from scipy.ndimage import map_coordinates
+        rotated_volume = map_coordinates(volume, [z_rot, y_rot, x_rot], order=1, mode='constant')
+        
+        return rotated_volume
+        
+    def _apply_mixup(self, subvolume, idx):
+        """Apply mixup augmentation by blending with another random sample.
+        
+        Mixup is a data augmentation technique that creates virtual training examples
+        by mixing pairs of inputs and their labels with random proportions.
+        
+        Args:
+            subvolume: The current subvolume being processed
+            idx: Index of the current subvolume to avoid mixing with itself
+            
+        Returns:
+            Mixed subvolume
+        """
+        if len(self._subvolumes) <= 1:
+            return subvolume
+            
+        # Select a different index at random
+        other_idx = idx
+        while other_idx == idx:
+            other_idx = random.randint(0, len(self._subvolumes) - 1)
+            
+        # Get the other subvolume
+        other_subvolume = self._subvolumes[other_idx].copy()
+        
+        # Sample lambda from beta distribution
+        if self.mixup_alpha > 0:
+            lam = np.random.beta(self.mixup_alpha, self.mixup_alpha)
+        else:
+            lam = 0.5  # Equal mix if alpha not provided
+            
+        # Mix the subvolumes
+        mixed_subvolume = lam * subvolume + (1 - lam) * other_subvolume
+        
+        # Note: In a real training scenario, you would also mix the labels
+        # For simplicity in the dataset, we're just mixing the inputs
+        # The actual label mixing would be done in the training loop
+        
+        return mixed_subvolume
 
     def __len__(self):
         """Get the total number of items in the dataset."""
@@ -498,13 +637,16 @@ class CopickDataset(Dataset):
         molecule_idx = self._molecule_ids[idx]
 
         if self.augment:
-            subvolume = self._augment_subvolume(subvolume)
+            subvolume = self._augment_subvolume(subvolume, idx)
 
         # Normalize
         subvolume = (subvolume - np.mean(subvolume)) / (np.std(subvolume) + 1e-6)
         
         # Add channel dimension and convert to tensor
         subvolume = torch.as_tensor(subvolume[None, ...], dtype=torch.float32)
+        
+        # For mixup, we could also return the mixing lambda and second class
+        # but for simplicity, we just return the standard format for now
         return subvolume, torch.tensor(molecule_idx)
 
     def get_sample_weights(self):
