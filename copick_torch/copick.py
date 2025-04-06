@@ -672,6 +672,10 @@ class CopickDataset(Dataset):
 
     def examples(self):
         """Get example volumes for each class."""
+        # Check if dataset is empty
+        if len(self._subvolumes) == 0 or len(self._molecule_ids) == 0:
+            return None, []
+            
         class_examples = {}
         example_tensors = []
         example_labels = []
@@ -680,22 +684,31 @@ class CopickDataset(Dataset):
         for cls in range(len(self._keys)):
             # Find first index for this class
             for i, mol_id in enumerate(self._molecule_ids):
-                if mol_id == cls and cls not in class_examples and not self._is_background[i]:
-                    volume, _ = self[i]
-                    example_tensors.append(volume)
-                    example_labels.append(cls)
-                    class_examples[cls] = i
-                    break
+                if mol_id == cls and cls not in class_examples and \
+                   (not self._is_background or not self._is_background[i]):
+                    try:
+                        volume, _ = self[i]
+                        example_tensors.append(volume)
+                        example_labels.append(cls)
+                        class_examples[cls] = i
+                        break
+                    except Exception as e:
+                        print(f"Error extracting example for class {cls}: {str(e)}")
+                        continue
         
         # Add background example if present
-        if self.include_background and any(self._is_background):
+        if self.include_background and self._is_background and any(self._is_background):
             # Find first background sample
             for i, is_bg in enumerate(self._is_background):
                 if is_bg:
-                    volume, _ = self[i]
-                    example_tensors.append(volume)
-                    example_labels.append(-1)  # Use -1 for background
-                    break
+                    try:
+                        volume, _ = self[i]
+                        example_tensors.append(volume)
+                        example_labels.append(-1)  # Use -1 for background
+                        break
+                    except Exception as e:
+                        print(f"Error extracting background example: {str(e)}")
+                        continue
         
         if example_tensors:
             return torch.stack(example_tensors), [
