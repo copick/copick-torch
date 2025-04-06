@@ -34,7 +34,8 @@ class CopickDataset(Dataset):
         voxel_spacing: float = 10.0,
         include_background: bool = False,
         background_ratio: float = 0.2,  # Background samples as proportion of particle samples
-        min_background_distance: Optional[float] = None  # Min distance in voxels from particles
+        min_background_distance: Optional[float] = None,  # Min distance in voxels from particles
+        patch_strategy: str = "centered"  # Can be "centered", "random", or "jittered"
     ):
         self.config_path = config_path
         self.boxsize = boxsize
@@ -253,16 +254,38 @@ class CopickDataset(Dataset):
             raise
 
     def _extract_subvolume_with_validation(self, tomogram_array, x, y, z):
+        """Extract a subvolume with validation checks, applying the selected patch strategy."""
         """Extract a subvolume with validation checks."""
         half_box = np.array(self.boxsize) // 2
         
+        # Apply patch strategy
+        if self.patch_strategy == "centered":
+            # Standard centered extraction
+            offset_x, offset_y, offset_z = 0, 0, 0
+        elif self.patch_strategy == "random":
+            # Random offsets within half_box/4
+            max_offset = [size // 4 for size in half_box]
+            offset_x = np.random.randint(-max_offset[0], max_offset[0] + 1)
+            offset_y = np.random.randint(-max_offset[1], max_offset[1] + 1)
+            offset_z = np.random.randint(-max_offset[2], max_offset[2] + 1)
+        elif self.patch_strategy == "jittered":
+            # Small random jitter for data augmentation
+            offset_x = np.random.randint(-2, 3)
+            offset_y = np.random.randint(-2, 3)
+            offset_z = np.random.randint(-2, 3)
+        
+        # Apply offsets to coordinates
+        x_adj = x + offset_x
+        y_adj = y + offset_y
+        z_adj = z + offset_z
+        
         # Calculate slice indices
-        x_start = max(0, int(x - half_box[0]))
-        x_end = min(tomogram_array.shape[2], int(x + half_box[0]))
-        y_start = max(0, int(y - half_box[1]))
-        y_end = min(tomogram_array.shape[1], int(y + half_box[1]))
-        z_start = max(0, int(z - half_box[2]))
-        z_end = min(tomogram_array.shape[0], int(z + half_box[2]))
+        x_start = max(0, int(x_adj - half_box[0]))
+        x_end = min(tomogram_array.shape[2], int(x_adj + half_box[0]))
+        y_start = max(0, int(y_adj - half_box[1]))
+        y_end = min(tomogram_array.shape[1], int(y_adj + half_box[1]))
+        z_start = max(0, int(z_adj - half_box[2]))
+        z_end = min(tomogram_array.shape[0], int(z_adj + half_box[2]))
         
         # Validate slice ranges
         if x_end <= x_start or y_end <= y_start or z_end <= z_start:
