@@ -32,6 +32,9 @@ test = [
     "pytest-cov"
 ]
 
+[project.scripts]
+coverage-report = "scripts.coverage_report:main"
+
 [tool.hatch.metadata]
 allow-direct-references = true
 
