@@ -158,7 +158,7 @@ class MONAIParticleDetector:
         # Use ResNet18 as the backbone for faster inference
         backbone = resnet.ResNet(
             spatial_dims=spatial_dims,
-            block=resnet.ResNetBasicBlock,
+            block=resnet.ResNetBlock,
             layers=[2, 2, 2, 2],  # ResNet18 architecture
             block_inplanes=resnet.get_inplanes(),
             n_input_channels=1,  # Single channel for tomogram data

@@ -100,13 +100,24 @@ class DoGParticleDetector:
         
         # Find local maxima
         self.logger.info(f"Finding peaks with min_distance={self.min_distance}, threshold={self.threshold_abs}")
-        peaks = peak_local_max(
-            dog_vol,
-            min_distance=self.min_distance,
-            threshold_abs=self.threshold_abs,
-            exclude_border=self.exclude_border,
-            indices=True
-        )
+        # Handle peak_local_max with compatibility for different scikit-image versions
+        try:
+            # Newer versions of scikit-image
+            peaks = peak_local_max(
+                dog_vol,
+                min_distance=self.min_distance,
+                threshold_abs=self.threshold_abs,
+                exclude_border=self.exclude_border,
+                indices=True
+            )
+        except TypeError:
+            # Older versions of scikit-image don't have the indices parameter (it's always True)
+            peaks = peak_local_max(
+                dog_vol,
+                min_distance=self.min_distance,
+                threshold_abs=self.threshold_abs,
+                exclude_border=self.exclude_border
+            )
         
         # Return peak coordinates and peak values if requested
         if return_scores:
