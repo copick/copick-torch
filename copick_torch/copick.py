@@ -38,9 +38,10 @@ class CopickDataset(Dataset):
         min_background_distance: Optional[float] = None,  # Min distance in voxels from particles
         patch_strategy: str = "centered",  # Can be "centered", "random", or "jittered"
         augmentations: Optional[List[str]] = None,  # List of augmentation types to apply
-        augmentation_prob: float = 0.5,  # Probability of applying each augmentation
+        augmentation_prob: float = 0.2,  # Probability of applying each augmentation
         mixup_alpha: Optional[float] = None,  # Alpha parameter for mixup augmentation
-        rotate_axes: Tuple[int, int, int] = (1, 1, 1)  # Enable/disable rotation around each axis (x, y, z)
+        rotate_axes: Tuple[int, int, int] = (1, 1, 1),  # Enable/disable rotation around each axis (x, y, z)
+        debug_mode: bool = False
     ):
         # Validate input: either config_path or copick_root must be provided
         if config_path is None and copick_root is None:
@@ -59,6 +60,7 @@ class CopickDataset(Dataset):
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
         self.patch_strategy = patch_strategy
+        self.debug_mode = debug_mode
         
         # Augmentation settings
         self.augmentation_prob = augmentation_prob
@@ -505,29 +507,71 @@ class CopickDataset(Dataset):
             idx: Optional index for mixup augmentation
             
         Returns:
-            Augmented subvolume
+            Augmented subvolume and list of applied augmentations if debug_mode is True
         """
+        # Track applied augmentations if debug mode is enabled
+        applied_augmentations = []
+        mixup_info = None
+        
         # Apply standard augmentations with probability
         for aug in self.augmentations:
             if random.random() < self.augmentation_prob:
                 if aug == "brightness":
-                    subvolume = self._brightness(subvolume)
+                    delta = np.random.uniform(-0.5, 0.5)  # Track the specific delta
+                    subvolume = self._brightness(subvolume, max_delta=0.5)
+                    if self.debug_mode:
+                        applied_augmentations.append({"type": "brightness", "delta": float(delta)})
+                
                 elif aug == "blur":
-                    subvolume = self._gaussian_blur(subvolume)
+                    sigma = np.random.uniform(0.5, 1.5)  # Track the specific sigma
+                    subvolume = self._gaussian_blur(subvolume, sigma_range=(0.5, 1.5))
+                    if self.debug_mode:
+                        applied_augmentations.append({"type": "blur", "sigma": float(sigma)})
+                
                 elif aug == "intensity":
-                    subvolume = self._intensity_scaling(subvolume)
+                    factor = np.random.uniform(0.5, 1.5)  # Track the specific factor
+                    subvolume = self._intensity_scaling(subvolume, intensity_range=(0.5, 1.5))
+                    if self.debug_mode:
+                        applied_augmentations.append({"type": "intensity", "factor": float(factor)})
+                
                 elif aug == "flip":
-                    subvolume = self._flip(subvolume)
+                    axis = random.randint(0, 2)  # Track which axis was flipped
+                    subvolume = self._flip(subvolume, axis=axis)
+                    if self.debug_mode:
+                        applied_augmentations.append({"type": "flip", "axis": int(axis)})
+                
                 elif aug == "rotate":
-                    subvolume = self._rotate(subvolume)
+                    # Filter available axes based on rotate_axes setting
+                    available_axes = [i for i, allowed in enumerate(self.rotate_axes) if allowed]
+                    if len(available_axes) < 2:
+                        axis1, axis2 = 0, 1
+                    else:
+                        axis1, axis2 = random.sample(available_axes, 2)
+                    k = random.randint(1, 3)  # 90, 180, or 270 degrees
+                    subvolume = self._rotate(subvolume, axes=(axis1, axis2), k=k)
+                    if self.debug_mode:
+                        applied_augmentations.append({"type": "rotate", "axes": (int(axis1), int(axis2)), "k": int(k)})
+                
                 elif aug == "rotate_z" and "rotate_z" in self.augmentations:
-                    subvolume = self._rotate_z(subvolume)
+                    angle = np.random.uniform(0, 360)  # Track rotation angle
+                    subvolume = self._rotate_z(subvolume, angle=angle)
+                    if self.debug_mode:
+                        applied_augmentations.append({"type": "rotate_z", "angle": float(angle)})
                     
         # Apply mixup if enabled and we have an index to work with
         if "mixup" in self.augmentations and self.mixup_alpha is not None and idx is not None:
-            subvolume = self._apply_mixup(subvolume, idx)
+            if random.random() < self.augmentation_prob:
+                subvolume, mixup_other_idx, mixup_lambda = self._apply_mixup(subvolume, idx)
+                if self.debug_mode and mixup_other_idx is not None:
+                    mixup_info = {
+                        "other_idx": int(mixup_other_idx),
+                        "lambda": float(mixup_lambda)
+                    }
             
-        return subvolume
+        if self.debug_mode:
+            return subvolume, applied_augmentations, mixup_info
+        else:
+            return subvolume
 
     def _brightness(self, volume, max_delta=0.5):
         """Adjust brightness of a volume."""
@@ -626,10 +670,10 @@ class CopickDataset(Dataset):
             idx: Index of the current subvolume to avoid mixing with itself
             
         Returns:
-            Mixed subvolume
+            Tuple of (mixed subvolume, other_idx, lambda) for complete mixup
         """
         if len(self._subvolumes) <= 1:
-            return subvolume
+            return subvolume, None, 1.0
             
         # Select a different index at random
         other_idx = idx
@@ -648,33 +692,98 @@ class CopickDataset(Dataset):
         # Mix the subvolumes
         mixed_subvolume = lam * subvolume + (1 - lam) * other_subvolume
         
-        # Note: In a real training scenario, you would also mix the labels
-        # For simplicity in the dataset, we're just mixing the inputs
-        # The actual label mixing would be done in the training loop
-        
-        return mixed_subvolume
+        # Return the mixed subvolume, the other sample's index, and the lambda value
+        # This allows the __getitem__ method to properly handle the labels
+        return mixed_subvolume, other_idx, lam
 
     def __len__(self):
         """Get the total number of items in the dataset."""
         return len(self._subvolumes)
 
     def __getitem__(self, idx):
-        """Get an item from the dataset."""
+        """Get an item from the dataset with proper mixup handling and augmentation tracking.
+        
+        Returns:
+            tuple: (subvolume, label_dict)
+            
+            Where label_dict contains:
+            - 'class_idx': Original class index (or primary class index if mixed)
+            - 'is_mixed': Boolean indicating if mixup was applied
+            - 'mix_lambda': Lambda value for mixup (1.0 if no mixup)
+            - 'mix_class_idx': Secondary class index for mixup (None if no mixup)
+            - 'applied_augmentations': List of applied augmentations (if debug_mode=True)
+        """
         subvolume = self._subvolumes[idx].copy()
         molecule_idx = self._molecule_ids[idx]
+        
+        # Initialize label dictionary with default values
+        label_dict = {
+            'class_idx': molecule_idx,
+            'is_mixed': False,
+            'mix_lambda': 1.0,
+            'mix_class_idx': None
+        }
+        
+        # Track augmentations if debug mode is enabled
+        if self.debug_mode:
+            label_dict['applied_augmentations'] = []
 
         if self.augment:
-            subvolume = self._augment_subvolume(subvolume, idx)
-
+            if self.debug_mode:
+                # Apply augmentations with tracking in debug mode
+                subvolume, applied_augmentations, mixup_info = self._augment_subvolume(subvolume, idx)
+                
+                # Store augmentation information in label dictionary
+                label_dict['applied_augmentations'] = applied_augmentations
+                
+                # Update mixup information if applicable
+                if mixup_info is not None:
+                    mixup_other_idx = mixup_info['other_idx']
+                    mixup_lambda = mixup_info['lambda']
+                    other_molecule_idx = self._molecule_ids[mixup_other_idx]
+                    label_dict.update({
+                        'is_mixed': True,
+                        'mix_lambda': mixup_lambda,
+                        'mix_class_idx': other_molecule_idx
+                    })
+            else:
+                # Standard approach without tracking
+                for aug in self.augmentations:
+                    if random.random() < self.augmentation_prob:
+                        if aug == "brightness":
+                            subvolume = self._brightness(subvolume)
+                        elif aug == "blur":
+                            subvolume = self._gaussian_blur(subvolume)
+                        elif aug == "intensity":
+                            subvolume = self._intensity_scaling(subvolume)
+                        elif aug == "flip":
+                            subvolume = self._flip(subvolume)
+                        elif aug == "rotate":
+                            subvolume = self._rotate(subvolume)
+                        elif aug == "rotate_z" and "rotate_z" in self.augmentations:
+                            subvolume = self._rotate_z(subvolume)
+                
+                # Apply mixup separately to capture its metadata
+                if "mixup" in self.augmentations and self.mixup_alpha is not None:
+                    if random.random() < self.augmentation_prob:
+                        subvolume, mixup_other_idx, mixup_lambda = self._apply_mixup(subvolume, idx)
+                        
+                        # Update label dictionary with mixup information if applicable
+                        if mixup_other_idx is not None:
+                            other_molecule_idx = self._molecule_ids[mixup_other_idx]
+                            label_dict.update({
+                                'is_mixed': True,
+                                'mix_lambda': mixup_lambda,
+                                'mix_class_idx': other_molecule_idx
+                            })
+        
         # Normalize
         subvolume = (subvolume - np.mean(subvolume)) / (np.std(subvolume) + 1e-6)
         
         # Add channel dimension and convert to tensor
         subvolume = torch.as_tensor(subvolume[None, ...], dtype=torch.float32)
         
-        # For mixup, we could also return the mixing lambda and second class
-        # but for simplicity, we just return the standard format for now
-        return subvolume, torch.tensor(molecule_idx)
+        return subvolume, label_dict
 
     def get_sample_weights(self):
         """Return sample weights for use in a WeightedRandomSampler."""
@@ -901,13 +1010,16 @@ class CopickDataset(Dataset):
                 for idx in duplicate_indices:
                     # Apply some basic augmentation to avoid exact duplicates
                     augmented = self._subvolumes[idx].copy()
-                    # Apply random augmentations regardless of self.augment setting
-                    # This is to ensure variety in the duplicated samples
-                    augmented = self._flip(augmented)
-                    if random.random() < 0.5:
-                        augmented = self._brightness(augmented)
-                    if random.random() < 0.5:
-                        augmented = self._intensity_scaling(augmented)
+
+                    if self.debug_mode:
+                        augmented, applied_augs, _ = self._augment_subvolume(augmented)
+                    else:
+                        # Just apply some basic augmentations
+                        augmented = self._flip(augmented)
+                        if random.random() < 0.5:
+                            augmented = self._brightness(augmented)
+                        if random.random() < 0.5:
+                            augmented = self._intensity_scaling(augmented)
                     
                     new_subvolumes.append(augmented)
                     new_molecule_ids.append(self._molecule_ids[idx])
@@ -927,7 +1039,8 @@ class CopickDataset(Dataset):
             seed=self.seed,
             voxel_spacing=self.voxel_spacing,
             include_background=self.include_background,
-            patch_strategy=self.patch_strategy
+            patch_strategy=self.patch_strategy,
+            debug_mode=self.debug_mode
         )
         
         # Replace data with balanced data
