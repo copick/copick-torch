@@ -119,21 +119,44 @@ class CopickDataset(Dataset):
 
     def _get_cache_path(self):
         """Get the appropriate cache file path based on format."""
-        # If we have a copick_root but no config_path, use a hash of the object id
+        # If we have a copick_root but no config_path, use dataset IDs
         cache_key = self.config_path
         if cache_key is None and self.copick_root is not None:
-            cache_key = f"copick_root_{hash(id(self.copick_root))}"
-            
+            # Try to get dataset IDs from the datasets attribute
+            try:
+                dataset_ids = []
+                for dataset in self.copick_root.datasets:
+                    if hasattr(dataset, 'id'):
+                        dataset_ids.append(str(dataset.id))
+                
+                if dataset_ids:
+                    # Use the dataset IDs in order as the cache key
+                    dataset_ids_str = '_'.join(dataset_ids)
+                    cache_key = f"datasets_{dataset_ids_str}"
+                else:
+                    # Fallback if no dataset IDs found
+                    cache_key = f"copick_root_unknown"
+            except (AttributeError, IndexError):
+                # Fallback if datasets attribute doesn't exist
+                if hasattr(self.copick_root, 'dataset_ids'):
+                    dataset_ids = [str(did) for did in self.copick_root.dataset_ids]
+                    cache_key = f"datasets_{'_'.join(dataset_ids)}"
+                else:
+                    # Last resort fallback
+                    cache_key = f"copick_root_{hash(str(self.copick_root))}"
+        
         if self.cache_format == "pickle":
             return os.path.join(
                 self.cache_dir,
                 f"{cache_key}_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
+                f"_{self.voxel_spacing}"
                 f"{'_with_bg' if self.include_background else ''}.pkl"
             )
         else:  # parquet
             return os.path.join(
                 self.cache_dir,
                 f"{cache_key}_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
+                f"_{self.voxel_spacing}"
                 f"{'_with_bg' if self.include_background else ''}.parquet"
             )
 
