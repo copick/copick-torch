@@ -29,11 +29,19 @@ pytest
 pytest --cov=copick_torch --cov-report=term --cov-report=html --cov-report=xml
 ```
 
+Or use the self-contained coverage script:
+
+```bash
+# Run tests and generate coverage reports with badge
+python scripts/coverage_report.py --term
+```
+
 After running the tests with coverage, you can:
 
 1. View the terminal report directly in your console
 2. Open `htmlcov/index.html` in a browser to see the detailed HTML report
-3. Check the [Codecov dashboard](https://codecov.io/gh/copick/copick-torch) for the project's coverage metrics
+3. View the generated coverage badge (`coverage-badge.svg`)
+4. Check the [Codecov dashboard](https://codecov.io/gh/copick/copick-torch) for the project's coverage metrics
 
 ## Code of Conduct
 
