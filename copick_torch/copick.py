@@ -24,8 +24,8 @@ class CopickDataset(Dataset):
 
     def __init__(
         self,
-        config_path: Union[str, Any] = None,  # Allow for either a path or a copick root object
-        copick_root: Optional[Any] = None,   # New parameter for pre-loaded copick project
+        config_path: Union[str, Any] = None,
+        copick_root: Optional[Any] = None,
         boxsize: Tuple[int, int, int] = (32, 32, 32),
         augment: bool = False,
         cache_dir: Optional[str] = None,
