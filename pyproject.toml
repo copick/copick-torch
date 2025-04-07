@@ -23,6 +23,7 @@ dependencies = [
     "pyarrow>=19.0.1",
     "pytest>=8.3.5",
     "scikit-learn>=1.6.1",
+    "torchvision>=0.21.0",
 ]
 
 [project.optional-dependencies]
