@@ -24,7 +24,8 @@ class CopickDataset(Dataset):
 
     def __init__(
         self,
-        config_path: str,
+        config_path: Union[str, Any] = None,  # Allow for either a path or a copick root object
+        copick_root: Optional[Any] = None,   # New parameter for pre-loaded copick project
         boxsize: Tuple[int, int, int] = (32, 32, 32),
         augment: bool = False,
         cache_dir: Optional[str] = None,
@@ -41,7 +42,12 @@ class CopickDataset(Dataset):
         mixup_alpha: Optional[float] = None,  # Alpha parameter for mixup augmentation
         rotate_axes: Tuple[int, int, int] = (1, 1, 1)  # Enable/disable rotation around each axis (x, y, z)
     ):
+        # Validate input: either config_path or copick_root must be provided
+        if config_path is None and copick_root is None:
+            raise ValueError("Either config_path or copick_root must be provided")
+            
         self.config_path = config_path
+        self.copick_root = copick_root
         self.boxsize = boxsize
         self.augment = augment
         self.cache_dir = cache_dir
@@ -111,16 +117,21 @@ class CopickDataset(Dataset):
 
     def _get_cache_path(self):
         """Get the appropriate cache file path based on format."""
+        # If we have a copick_root but no config_path, use a hash of the object id
+        cache_key = self.config_path
+        if cache_key is None and self.copick_root is not None:
+            cache_key = f"copick_root_{hash(id(self.copick_root))}"
+            
         if self.cache_format == "pickle":
             return os.path.join(
                 self.cache_dir,
-                f"copick_cache_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
+                f"{cache_key}_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
                 f"{'_with_bg' if self.include_background else ''}.pkl"
             )
         else:  # parquet
             return os.path.join(
                 self.cache_dir,
-                f"copick_cache_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
+                f"{cache_key}_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
                 f"{'_with_bg' if self.include_background else ''}.parquet"
             )
 
@@ -350,14 +361,17 @@ class CopickDataset(Dataset):
 
     def _load_data(self):
         """Load particle picks data from copick project."""
-        print(f"Loading data from {self.config_path}")
-        
-        # Load copick root
-        try:
-            root = copick.from_file(self.config_path)
-        except Exception as e:
-            print(f"Failed to load copick root: {str(e)}")
-            return
+        # Determine which root to use
+        if self.copick_root is not None:
+            root = self.copick_root
+            print(f"Using provided copick root object")
+        else:
+            try:
+                root = copick.from_file(self.config_path)
+                print(f"Loading data from {self.config_path}")
+            except Exception as e:
+                print(f"Failed to load copick root: {str(e)}")
+                return
 
         # Store all particle coordinates for background sampling
         all_particle_coords = []
