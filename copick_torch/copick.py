@@ -540,25 +540,25 @@ class CopickDataset(Dataset):
         for aug in self.augmentations:
             if random.random() < self.augmentation_prob:
                 if aug == "brightness":
-                    delta = np.random.uniform(-0.5, 0.5)  # Track the specific delta
+                    delta = np.random.uniform(-0.5, 0.5)
                     subvolume = self._brightness(subvolume, max_delta=0.5)
                     if self.debug_mode:
                         applied_augmentations.append({"type": "brightness", "delta": float(delta)})
                 
                 elif aug == "blur":
-                    sigma = np.random.uniform(0.5, 1.5)  # Track the specific sigma
+                    sigma = np.random.uniform(0.5, 1.5)
                     subvolume = self._gaussian_blur(subvolume, sigma_range=(0.5, 1.5))
                     if self.debug_mode:
                         applied_augmentations.append({"type": "blur", "sigma": float(sigma)})
                 
                 elif aug == "intensity":
-                    factor = np.random.uniform(0.5, 1.5)  # Track the specific factor
+                    factor = np.random.uniform(0.5, 1.5)
                     subvolume = self._intensity_scaling(subvolume, intensity_range=(0.5, 1.5))
                     if self.debug_mode:
                         applied_augmentations.append({"type": "intensity", "factor": float(factor)})
                 
                 elif aug == "flip":
-                    axis = random.randint(0, 2)  # Track which axis was flipped
+                    axis = random.randint(0, 2)
                     subvolume = self._flip(subvolume, axis=axis)
                     if self.debug_mode:
                         applied_augmentations.append({"type": "flip", "axis": int(axis)})
@@ -576,7 +576,7 @@ class CopickDataset(Dataset):
                         applied_augmentations.append({"type": "rotate", "axes": (int(axis1), int(axis2)), "k": int(k)})
                 
                 elif aug == "rotate_z" and "rotate_z" in self.augmentations:
-                    angle = np.random.uniform(0, 360)  # Track rotation angle
+                    angle = np.random.uniform(0, 360)
                     subvolume = self._rotate_z(subvolume, angle=angle)
                     if self.debug_mode:
                         applied_augmentations.append({"type": "rotate_z", "angle": float(angle)})
@@ -611,36 +611,56 @@ class CopickDataset(Dataset):
         intensity_factor = np.random.uniform(*intensity_range)
         return volume * intensity_factor
 
-    def _flip(self, volume):
-        """Randomly flip the volume along one axis."""
-        axis = random.randint(0, 2)
+    def _flip(self, volume, axis=None):
+        """Flip the volume along specified axis or a random axis if not specified."""
+        if axis is None:
+            axis = random.randint(0, 2)
         return np.flip(volume, axis=axis)
         
-    def _rotate(self, volume):
-        """Rotate the volume 90, 180, or 270 degrees around allowed axes."""
-        # Filter available axes based on rotate_axes setting
-        available_axes = [i for i, allowed in enumerate(self.rotate_axes) if allowed]
+    def _rotate(self, volume, axes=None, k=None):
+        """Rotate the volume 90, 180, or 270 degrees around specified or allowed axes.
         
-        if len(available_axes) < 2:
-            # Need at least 2 axes for rotation, if not enough are enabled,
-            # default to standard x-y rotation
-            axis1, axis2 = 0, 1
-        else:
-            # Select two random axes from the available ones
-            axis1, axis2 = random.sample(available_axes, 2)
+        Args:
+            volume: The 3D volume to rotate
+            axes: Optional tuple of (axis1, axis2) to rotate around
+            k: Optional number of 90-degree rotations (1, 2, or 3)
+            
+        Returns:
+            Rotated volume
+        """
+        # If axes not specified, select from available axes
+        if axes is None:
+            # Filter available axes based on rotate_axes setting
+            available_axes = [i for i, allowed in enumerate(self.rotate_axes) if allowed]
+            
+            if len(available_axes) < 2:
+                # Need at least 2 axes for rotation, if not enough are enabled,
+                # default to standard x-y rotation
+                axes = (0, 1)
+            else:
+                # Select two random axes from the available ones
+                axes = tuple(random.sample(available_axes, 2))
         
-        k = random.randint(1, 3)  # 90, 180, or 270 degrees
-        return np.rot90(volume, k=k, axes=(axis1, axis2))
+        # If k not specified, choose random rotation
+        if k is None:
+            k = random.randint(1, 3)  # 90, 180, or 270 degrees
         
-    def _rotate_z(self, volume):
+        return np.rot90(volume, k=k, axes=axes)
+        
+    def _rotate_z(self, volume, angle=None):
         """Apply rotation specifically around z-axis.
         
-        This augmentation is useful for tomography data where the z-axis
-        often has special significance.
+        Args:
+            volume: The 3D volume to rotate
+            angle: Optional rotation angle in degrees (0-360)
+            
+        Returns:
+            Rotated volume
         """
         # For z-rotation, we'll rotate around the first dimension (z-axis)
         # using alternative methods that allow arbitrary angles
-        angle = np.random.uniform(0, 360)  # Random angle in degrees
+        if angle is None:
+            angle = np.random.uniform(0, 360)  # Random angle in degrees
         
         # Get center coordinates
         center_z, center_y, center_x = np.array(volume.shape) // 2
@@ -656,9 +676,9 @@ class CopickDataset(Dataset):
         
         # Create coordinates grid
         z, y, x = np.meshgrid(np.arange(volume.shape[0]),
-                             np.arange(volume.shape[1]),
-                             np.arange(volume.shape[2]),
-                             indexing='ij')
+                            np.arange(volume.shape[1]),
+                            np.arange(volume.shape[2]),
+                            indexing='ij')
         
         # Adjust coordinates to be relative to center
         z -= center_z
