@@ -6,6 +6,10 @@
   run: |
     bash scripts/ci_post_test.sh
 
+- name: Generate Coverage Reports
+  run: |
+    bash scripts/ci_post_test.sh
+    
 - name: Upload Coverage Reports
   uses: actions/upload-artifact@v3
   with:
