@@ -119,7 +119,8 @@ class TestCopickDataset(unittest.TestCase):
         # Check shapes and types
         self.assertEqual(volume.shape, (1, *self.boxsize))  # Check channel dimension added
         self.assertIsInstance(volume, torch.Tensor)
-        self.assertEqual(label.item(), 0)
+        self.assertIsInstance(label, dict)  # Verify label is a dictionary
+        self.assertEqual(label['class_idx'], 0)  # Check if class_idx is correct
     
     @patch('copick_torch.copick.CopickDataset._load_data')
     def test_stratified_split(self, mock_load_data):
