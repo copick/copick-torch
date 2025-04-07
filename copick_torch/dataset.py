@@ -447,6 +447,17 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
             # Process picks
             run_particle_coords = []  # Store coordinates for this run
             
+            # First, register all object names to ensure they're all in the keys list
+            for picks in run.get_picks():
+                if not picks.from_tool:
+                    continue
+                    
+                object_name = picks.pickable_object_name
+                if object_name not in self._keys:
+                    self._keys.append(object_name)
+                    print(f"Registered object class: {object_name}")
+            
+            # Then process all picks to extract subvolumes
             for picks in run.get_picks():
                 if not picks.from_tool:
                     continue
@@ -457,6 +468,7 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
                     points, _ = picks.numpy()
                     points = points / self.voxel_spacing
                     
+                    valid_points = 0
                     for point in points:
                         try:
                             x, y, z = point
@@ -471,14 +483,13 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
                             
                             if is_valid:
                                 self._subvolumes.append(subvolume)
-                                
-                                if object_name not in self._keys:
-                                    self._keys.append(object_name)
-                                
                                 self._molecule_ids.append(self._keys.index(object_name))
                                 self._is_background.append(False)
+                                valid_points += 1
                         except Exception as e:
                             print(f"Error extracting subvolume: {str(e)}")
+                    
+                    print(f"Processed {valid_points} valid points out of {len(points)} for {object_name}")
                 except Exception as e:
                     print(f"Error processing picks for {object_name}: {str(e)}")
             
@@ -499,6 +510,7 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
             self._is_background = self._is_background[indices]
         
         print(f"Loaded {len(self._subvolumes)} subvolumes with {len(self._keys)} classes")
+        print(f"Classes: {', '.join(self._keys)}")
         print(f"Background samples: {sum(self._is_background)}")
         
     def _sample_background_points(self, tomogram_array, particle_coords):
