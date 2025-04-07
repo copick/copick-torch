@@ -166,8 +166,7 @@ class TestBackgroundSampling(unittest.TestCase):
         # The test passes if we don't get an infinite loop
         self.assertGreaterEqual(len(dataset._subvolumes), 0)
     
-    @patch('copick_torch.dataset.SimpleCopickDataset._load_data')
-    def test_include_background_in_load_data(self, mock_load_data):
+    def test_include_background_in_load_data(self):
         """Test that _load_data calls _sample_background_points when include_background=True."""
         # Create a mock copick root
         mock_root = MagicMock()
@@ -189,24 +188,21 @@ class TestBackgroundSampling(unittest.TestCase):
         mock_picks.numpy.return_value = (np.array([[16, 16, 16]]), None)
         mock_run.get_picks.return_value = [mock_picks]
         
-        # Create dataset with include_background=True
-        dataset = SimpleCopickDataset(
-            config_path=None,
-            copick_root=mock_root,
-            boxsize=self.boxsize,
-            include_background=True,
-            background_ratio=0.5
-        )
-        
-        # Mock _sample_background_points to track calls
-        mock_sample_bg = MagicMock()
-        dataset._sample_background_points = mock_sample_bg
-        
-        # Call _load_data directly
-        dataset._load_data()
-        
-        # Check that _sample_background_points was called
-        mock_sample_bg.assert_called()
+        # Use patch within the test function
+        with patch('copick_torch.dataset.SimpleCopickDataset._sample_background_points') as mock_sample_bg:
+            # Create dataset with include_background=True
+            dataset = SimpleCopickDataset(
+                config_path=None,
+                copick_root=mock_root,
+                boxsize=self.boxsize,
+                include_background=True,
+                background_ratio=0.5,
+                cache_dir=None  # Disable caching to ensure _load_data runs
+            )
+            
+            # The _load_data method should have been called during initialization
+            # and _sample_background_points should be called from within it
+            mock_sample_bg.assert_called()
 
 
 if __name__ == '__main__':
