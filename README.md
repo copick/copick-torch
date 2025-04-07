@@ -1,5 +1,7 @@
 # copick-torch
 
+[![codecov](https://codecov.io/gh/copick/copick-torch/branch/main/graph/badge.svg)](https://codecov.io/gh/copick/copick-torch)
+
 Torch utilities for [copick](https://github.com/copick/copick)
 
 ## Quick demo
@@ -23,8 +25,15 @@ pytest
 ### View coverage report
 
 ```bash
-pytest --cov=copick_torch
+# Generate terminal, HTML and XML coverage reports
+pytest --cov=copick_torch --cov-report=term --cov-report=html --cov-report=xml
 ```
+
+After running the tests with coverage, you can:
+
+1. View the terminal report directly in your console
+2. Open `htmlcov/index.html` in a browser to see the detailed HTML report
+3. Check the [Codecov dashboard](https://codecov.io/gh/copick/copick-torch) for the project's coverage metrics
 
 ## Code of Conduct
 

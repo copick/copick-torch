@@ -47,6 +47,7 @@ comment:
   layout: "reach,diff,flags,files,footer"
   behavior: default
   require_changes: no
+  show_carryforward_flags: true
 
 ignore:
   - "examples/**/*"
