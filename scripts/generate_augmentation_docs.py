@@ -83,20 +83,29 @@ def rotation_augmentation(volume, k=1, axes=(0, 1)):
         return np.rot90(volume, k=k, axes=axes)
 
 def fourier_augmentation(volume):
-    """Apply Fourier domain augmentation."""
+    """Apply Fourier domain augmentation using MONAI-based implementation."""
     # Create the augmentation object
     fourier_aug = FourierAugment3D(
         freq_mask_prob=0.3,
         phase_noise_std=0.1,
-        intensity_scaling_range=(0.8, 1.2)
+        intensity_scaling_range=(0.8, 1.2),
+        prob=1.0  # Always apply the transform for demonstration
     )
     
     # Apply the augmentation
     if isinstance(volume, torch.Tensor):
-        volume_np = volume.squeeze(0).numpy()
-        augmented = fourier_aug(volume_np)
-        return torch.from_numpy(augmented).unsqueeze(0)
-    return fourier_aug(volume)
+        # MONAI transform expects tensor input
+        augmented = fourier_aug(volume)
+        return augmented
+    else:
+        # Convert numpy to tensor, apply transform, then convert back
+        tensor_vol = torch.from_numpy(volume)
+        if len(tensor_vol.shape) == 3:  # Add channel dimension if needed
+            tensor_vol = tensor_vol.unsqueeze(0)
+        augmented = fourier_aug(tensor_vol)
+        if len(augmented.shape) == 4:  # Remove channel dimension if added
+            augmented = augmented.squeeze(0)
+        return augmented.numpy()
 
 # Define the augmentations with their names
 AUGMENTATIONS = [
@@ -108,7 +117,7 @@ AUGMENTATIONS = [
     ("Intensity Scaling (0.5x)", lambda v: intensity_scaling(v, factor=0.5)),
     ("Flip (Z axis)", lambda v: flip_augmentation(v, axis=0)),
     ("Rotation (90°, XY plane)", lambda v: rotation_augmentation(v, k=1, axes=(1, 2))),
-    ("Fourier Augmentation", fourier_augmentation),
+    ("MONAI Fourier Augmentation", fourier_augmentation),
 ]
 
 def visualize_volume(volume, title, output_path, cmap='gray'):

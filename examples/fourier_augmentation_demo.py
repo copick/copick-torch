@@ -2,7 +2,7 @@
 """
 Demonstration of the Fourier domain augmentation in copick-torch.
 
-This script shows how to use the FourierAugment3D class in copick-torch 
+This script shows how to use the FourierAugment3D class in copick-torch
 to augment 3D volumes in the frequency domain.
 """
 
@@ -124,7 +124,9 @@ def run_multiple_augmentations(volume, num_augmentations=5):
     )
     
     # Run multiple augmentations
-    augmented_volumes = [fourier_aug(volume) for _ in range(num_augmentations)]
+    augmented_volumes = []
+    for _ in range(num_augmentations):
+        augmented_volumes.append(fourier_aug(torch.from_numpy(volume), randomize=True).numpy())
     
     # Prepare titles
     titles = ['Original'] + [f'Augmentation {i+1}' for i in range(num_augmentations)]
@@ -132,6 +134,32 @@ def run_multiple_augmentations(volume, num_augmentations=5):
     # Visualize
     visualize_volumes([volume] + augmented_volumes, titles, 
                      save_path='fourier_augmentations.png')
+
+
+def demonstrate_fourier_augmentation():
+    """Demonstrate the MONAI-based implementation."""
+    # Generate synthetic volume 
+    volume = generate_synthetic_volume(size=64, num_spheres=8)
+    volume_tensor = torch.from_numpy(volume)
+    
+    # Create the augmenter with defined parameters
+    fourier_aug = FourierAugment3D(
+        freq_mask_prob=0.3,
+        phase_noise_std=0.1,
+        intensity_scaling_range=(0.8, 1.2)
+    )
+    
+    # Set random seed for reproducibility 
+    torch.manual_seed(42)
+    np.random.seed(42)
+    
+    # Apply augmentation
+    augmented = fourier_aug(volume_tensor, randomize=True).numpy()
+    
+    # Visualize comparison
+    titles = ['Original', 'Fourier Augmentation']
+    visualize_volumes([volume, augmented], titles,
+                     save_path='fourier_demo.png')
 
 
 def main():
@@ -150,8 +178,11 @@ def main():
         intensity_scaling_range=(0.8, 1.2)
     )
     
+    # Convert to tensor for MONAI transform
+    volume_tensor = torch.from_numpy(volume)
+    
     # Apply augmentation
-    augmented_volume = fourier_aug(volume)
+    augmented_volume = fourier_aug(volume_tensor).numpy()
     print(f"Augmented volume with shape {augmented_volume.shape}")
     
     # Visualize volumes
@@ -170,6 +201,9 @@ def main():
     
     # Run and visualize multiple augmentations
     run_multiple_augmentations(volume)
+    
+    # Demonstrate Fourier augmentation with visualization
+    demonstrate_fourier_augmentation()
     
     print("Visualization images saved to the 'augmentation_output' directory.")
 
