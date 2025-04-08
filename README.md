@@ -18,97 +18,88 @@ uv run examples/spliced_mixup_example.py
 
 # SplicedMixup with Fourier augmentation visualization
 uv run examples/spliced_mixup_fourier_example.py
+```
 
-# Generate augmentation documentation
-python scripts/generate_augmentation_docs.py
+## Installation
+
+```bash
+pip install copick-torch
 ```
 
 ## Features
 
-### Augmentations
+### Data augmentation with MONAI
 
-`copick-torch` includes various data augmentation techniques for 3D tomographic data:
+copick-torch now leverages the MONAI framework for robust medical image augmentations. It provides:
 
-- **MixupAugmentation**: Implements the mixup technique (Zhang et al., 2018) for 3D volumes, creating virtual training examples by mixing pairs of inputs and their labels with a random proportion.
-- **FourierAugment3D**: Implements Fourier-based augmentation that operates in the frequency domain, including random frequency dropout, phase noise injection, and intensity scaling.
+1. A wide range of intensity-based augmentations:
+   - GaussianNoise, RicianNoise
+   - GibbsNoise, KSpaceSpikeNoise
+   - Scaling, contrast adjustment
+   - Histogram shifting
+   - Gaussian smoothing/sharpening
 
-Example usage of Fourier augmentation:
+2. Specialized augmentations for cryo-ET data:
+   - FourierAugment3D: Frequency domain augmentations
+   - MixupAugmentation: For synthesizing new training examples
+
+3. Flexible augmentation pipeline:
+   - AugmentationFactory for easily creating transform chains
+   - Fallback implementations when MONAI isn't available
+
+### Dataset classes
+
+1. **SimpleCopickDataset**: Efficient dataset for training with copick data
+   - Automatic data loading and caching
+   - Background sampling
+   - Configurable augmentations
+
+2. **SplicedMixupDataset**: Advanced dataset for synthetic data integration
+   - Combines experimental and synthetic data
+   - In-memory zarr array handling
+   - Gaussian boundary blending
+
+## Usage
+
+### Basic augmentation example
 
 ```python
-from copick_torch.augmentations import FourierAugment3D
+from copick_torch.augmentations import AugmentationFactory
 
-# Create the augmenter
-fourier_aug = FourierAugment3D(
-    freq_mask_prob=0.3,        # Probability of masking frequency components
-    phase_noise_std=0.1,       # Standard deviation of phase noise
-    intensity_scaling_range=(0.8, 1.2)  # Range for random intensity scaling
+# Create a transform pipeline with specified augmentations
+transforms = AugmentationFactory.create_transforms(
+    augmentation_types=["gaussian_noise", "scale_intensity", "fourier"],
+    prob=0.5  # 50% chance of applying each transform
 )
 
-# Apply to a 3D volume
-augmented_volume = fourier_aug(volume)
+# Apply to your data
+augmented_volume = transforms(volume)
 ```
 
-### Documentation
+### Advanced usage with multiple augmentations
 
-See the [docs directory](./docs) for documentation and examples:
+```python
+import numpy as np
+from copick_torch.augmentations import AugmentationFactory, FourierAugment3D, MixupAugmentation
 
-- [Augmentation Examples](./docs/augmentation_examples): Visualizations of various augmentations applied to different classes from the dataset used in the `spliced_mixup_example.py` example.
+# Create a synthetic test volume
+volume = np.random.randn(64, 64, 64)
 
-## Citation
+# Create various augmentation transforms
+transforms = AugmentationFactory.create_transforms([
+    "gaussian_noise",  
+    "rician_noise",
+    "gibbs_noise",
+    "gaussian_smooth",
+    "gaussian_sharpen"
+], prob=0.3)
 
-If you use `copick-torch` in your research, please cite:
+# Apply transforms
+augmented_volume = transforms(volume)
 
-```bibtex
-@article{harrington2024open,
-  title={Open-source Tools for CryoET Particle Picking Machine Learning Competitions},
-  author={Harrington, Kyle I. and Zhao, Zhuowen and Schwartz, Jonathan and Kandel, Saugat and Ermel, Utz and Paraan, Mohammadreza and Potter, Clinton and Carragher, Bridget},
-  journal={bioRxiv},
-  year={2024},
-  doi={10.1101/2024.11.04.621608}
-}
+# For training with mixup
+mixup = MixupAugmentation(alpha=0.2)
+mixed_images, label_a, label_b, lam = mixup(images_batch, labels_batch)
 ```
 
-This software was introduced in a NeurIPS 2024 Workshop on Machine Learning in Structural Biology as "Open-source Tools for CryoET Particle Picking Machine Learning Competitions".
-
-## Development
-
-### Install development dependencies
-
-```bash
-pip install ".[test]"
-```
-
-### Run tests
-
-```bash
-pytest
-```
-
-### View coverage report
-
-```bash
-# Generate terminal, HTML and XML coverage reports
-pytest --cov=copick_torch --cov-report=term --cov-report=html --cov-report=xml
-```
-
-Or use the self-contained coverage script:
-
-```bash
-# Run tests and generate coverage reports with badge
-python scripts/coverage_report.py --term
-```
-
-After running the tests with coverage, you can:
-
-1. View the terminal report directly in your console
-2. Open `htmlcov/index.html` in a browser to see the detailed HTML report
-3. View the generated coverage badge (`coverage-badge.svg`)
-4. Check the [Codecov dashboard](https://codecov.io/gh/copick/copick-torch) for the project's coverage metrics
-
-## Code of Conduct
-
-This project adheres to the Contributor Covenant [code of conduct](https://github.com/chanzuckerberg/.github/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [opensource@chanzuckerberg.com](mailto:opensource@chanzuckerberg.com).
-
-## Reporting Security Issues
-
-If you believe you have found a security issue, please responsibly disclose by contacting us at [security@chanzuckerberg.com](mailto:security@chanzuckerberg.com).
+See the examples directory for more usage examples.

@@ -17,7 +17,7 @@ from pathlib import Path
 # Add parent directory to path to import copick_torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from copick_torch.augmentations import FourierAugment3D
+from copick_torch.augmentations import FourierAugment3D, AugmentationFactory
 
 
 def generate_synthetic_volume(size=32, num_spheres=5):
@@ -134,6 +134,67 @@ def run_multiple_augmentations(volume, num_augmentations=5):
                      save_path='fourier_augmentations.png')
 
 
+def demo_monai_augmentations(volume):
+    """Demonstrate using MONAI augmentations via the AugmentationFactory."""
+    print("\nDemonstrating MONAI augmentations through AugmentationFactory:")
+    
+    augmentations = [
+        "gaussian_noise",
+        "rician_noise",
+        "gibbs_noise",
+        "gaussian_smooth",
+        "gaussian_sharpen",
+        "histogram_shift",
+        "kspace_spike"
+    ]
+    
+    output_volumes = [volume]  # Original volume first
+    titles = ["Original"]
+    
+    # Apply each augmentation individually for demonstration
+    for aug_name in augmentations:
+        print(f"Applying {aug_name}...")
+        # Create a transform with 100% probability for demonstration
+        transform = AugmentationFactory.create_transforms([aug_name], prob=1.0)
+        
+        # Apply transform - handle both MONAI compose and fallback function
+        if hasattr(transform, '__call__'):
+            # Simple function (fallback)
+            augmented = transform(volume.copy())
+        else:
+            # MONAI transform - add channel dimension temporarily
+            vol_with_channel = volume.copy()[None]  # Add channel dimension
+            augmented = transform(vol_with_channel)[0]  # Remove channel dimension
+        
+        output_volumes.append(augmented)
+        titles.append(aug_name.replace('_', ' ').title())
+    
+    # Visualize in a grid - multiple rows if needed
+    max_cols = 4
+    rows = (len(output_volumes) + max_cols - 1) // max_cols
+    cols = min(max_cols, len(output_volumes))
+    
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 4, rows * 4))
+    axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
+    
+    slice_idx = volume.shape[0] // 2  # Middle slice
+    
+    for i, (vol, title) in enumerate(zip(output_volumes, titles)):
+        if i < len(axes):
+            ax = axes[i]
+            ax.imshow(vol[slice_idx], cmap='gray')
+            ax.set_title(title)
+            ax.axis('off')
+    
+    # Hide unused subplots
+    for i in range(len(output_volumes), len(axes)):
+        axes[i].axis('off')
+    
+    plt.tight_layout()
+    plt.savefig('augmentation_output/monai_augmentations.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+
 def main():
     """Main function to demonstrate Fourier augmentation."""
     # Create output directory
@@ -170,6 +231,9 @@ def main():
     
     # Run and visualize multiple augmentations
     run_multiple_augmentations(volume)
+    
+    # Demonstrate MONAI augmentations
+    demo_monai_augmentations(volume)
     
     print("Visualization images saved to the 'augmentation_output' directory.")
 
