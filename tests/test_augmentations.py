@@ -3,7 +3,11 @@
 import pytest
 import torch
 import numpy as np
-from copick_torch.augmentations import MixupTransform, FourierAugment3D
+from copick_torch.augmentations import (
+    MixupTransform,
+    FourierAugment3D,
+    AugmentationComposer
+)
 
 
 def test_mixup_transform():
@@ -41,9 +45,6 @@ def test_mixup_transform():
     
     # Check second sample: Should be 0.7*1 + 0.3*0 = 0.7
     assert torch.allclose(mixed_x[1, 0, 0, 0, 0], torch.tensor(0.7), atol=1e-6)
-    
-    # Test mixup expected loss with lambda=0.7
-    assert torch.allclose(torch.tensor(1.6), torch.tensor(0.7), atol=1.0)
     
     # Test mixup_criterion
     def dummy_criterion(pred, target):
@@ -173,3 +174,56 @@ def test_zero_probability():
     
     # Original data should be unchanged
     assert torch.allclose(mixed_x, batch)
+
+
+def test_augmentation_composer():
+    """Test that AugmentationComposer correctly applies transforms."""
+    # Create a test volume
+    volume = torch.rand((2, 16, 16, 16))
+    
+    # Set seed for reproducibility
+    torch.manual_seed(42)
+    np.random.seed(42)
+    
+    # Test with only intensity transforms
+    composer = AugmentationComposer(
+        intensity_transforms=True,
+        spatial_transforms=False,
+        prob_intensity=1.0  # Always apply for testing
+    )
+    
+    # Apply augmentation
+    augmented = composer(volume)
+    
+    # Check shape preservation
+    assert augmented.shape == volume.shape
+    
+    # Make sure the augmentation changed the volume
+    assert not torch.allclose(augmented, volume, rtol=1e-3, atol=1e-3)
+    
+    # Test with only spatial transforms
+    composer = AugmentationComposer(
+        intensity_transforms=False,
+        spatial_transforms=True,
+        prob_spatial=1.0  # Always apply for testing
+    )
+    
+    # Apply augmentation
+    augmented = composer(volume)
+    
+    # Check shape preservation
+    assert augmented.shape == volume.shape
+    
+    # Test with both types of transforms
+    composer = AugmentationComposer(
+        intensity_transforms=True,
+        spatial_transforms=True,
+        prob_intensity=1.0,
+        prob_spatial=1.0
+    )
+    
+    # Apply augmentation
+    augmented = composer(volume)
+    
+    # Check shape preservation
+    assert augmented.shape == volume.shape

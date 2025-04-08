@@ -34,13 +34,15 @@ python scripts/generate_augmentation_docs.py
 
 - **MixupTransform**: MONAI-compatible implementation of the Mixup technique (Zhang et al., 2018), creating virtual training examples by mixing pairs of inputs and their labels with a random proportion.
 - **FourierAugment3D**: MONAI-compatible implementation of Fourier-based augmentation that operates in the frequency domain, including random frequency dropout, phase noise injection, and intensity scaling.
+- **AugmentationComposer**: A convenient wrapper for MONAI's augmentation transforms that makes it easy to build complex augmentation pipelines with intensity and spatial transforms.
 
-Example usage of MONAI-based Fourier augmentation:
+Example usage of MONAI-based augmentations:
 
 ```python
-from copick_torch.monai_augmentations import FourierAugment3D
+# Import augmentations
+from copick_torch.augmentations import FourierAugment3D, AugmentationComposer, MixupTransform
 
-# Create the augmenter
+# Create a Fourier augmenter
 fourier_aug = FourierAugment3D(
     freq_mask_prob=0.3,        # Probability of masking frequency components
     phase_noise_std=0.1,       # Standard deviation of phase noise
@@ -48,9 +50,35 @@ fourier_aug = FourierAugment3D(
     prob=1.0                   # Probability of applying the transform
 )
 
-# Apply to a 3D volume (with PyTorch tensor)
-augmented_volume = fourier_aug(volume_tensor)
+# Create an augmentation composer for multiple transforms
+augmentation_composer = AugmentationComposer(
+    intensity_transforms=True,  # Include intensity transforms
+    spatial_transforms=True,    # Include spatial transforms
+    prob_intensity=0.7,         # Probability of applying each intensity transform
+    prob_spatial=0.5,           # Probability of applying each spatial transform
+    rotate_range=0.1,           # Range for random rotation (radians)
+    scale_range=0.15,           # Range for random scaling
+    noise_std=0.1,              # Standard deviation for Gaussian noise
+    gamma_range=(0.7, 1.3),     # Range for contrast adjustment
+    intensity_range=(0.8, 1.2), # Range for intensity scaling
+    shift_range=(-0.1, 0.1)     # Range for intensity shifting
+)
+
+# Create a mixup augmenter for training
+mixup = MixupTransform(
+    alpha=0.2,                 # Parameter for Beta distribution
+    prob=1.0                   # Probability of applying mixup
+)
+
+# Apply augmentations to your data
+augmented_volume_fourier = fourier_aug(volume_tensor)
+augmented_volume_composer = augmentation_composer(volume_tensor)
+
+# For mixup during training
+mixed_images, label_a, label_b, lam = mixup(batch_images, batch_labels)
 ```
+
+The augmentations are built on top of MONAI's transform framework, making them compatible with MONAI's other transforms and pipelines.
 
 ### Documentation
 
