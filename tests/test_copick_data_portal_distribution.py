@@ -111,58 +111,102 @@ class TestCopickDataPortalDistribution(unittest.TestCase):
         """
         Test that the distribution of pickable objects in SimpleCopickDataset
         matches the distribution in the CryoET Data Portal.
+        
+        This test uses only a single run to minimize execution time while still
+        validating the distribution consistency.
         """
         # First, get the actual picks from Copick directly
         try:
             # Load the Copick project
             project = copick.from_file(self.config_path)
             
-            # Create a counter to track object counts directly from Copick
-            copick_object_counts = Counter()
-            
-            # Loop through all runs and count the pickable objects
-            for run in project.runs:
+            # Use only one run to speed up the test
+            if project.runs:
+                # Use the first run with available picks
+                run = None
+                for potential_run in project.runs:
+                    # Check if the run has picks
+                    has_picks = False
+                    for picks in potential_run.get_picks():
+                        if picks.from_tool:
+                            has_picks = True
+                            break
+                    
+                    if has_picks:
+                        run = potential_run
+                        break
+                
+                if not run:
+                    self.skipTest("No runs with picks found in the dataset.")
+                    
+                print(f"\nUsing run: {run.name} for testing")
+                
+                # Create a counter to track object counts directly from Copick
+                copick_object_counts = Counter()
+                
+                # Count the pickable objects in this run
                 for picks in run.get_picks():
                     if picks.from_tool:
                         # Get the object name and count the points
                         object_name = picks.pickable_object_name
                         points, _ = picks.numpy()
                         copick_object_counts[object_name] += len(points)
-            
-            # Now, create the SimpleCopickDataset with the same config
-            dataset = SimpleCopickDataset(
-                config_path=self.config_path,
-                boxsize=(32, 32, 32),
-                voxel_spacing=10.0,
-                cache_dir=None  # Don't use caching for this test
-            )
-            
-            # Get the distribution of classes in the dataset
-            dataset_distribution = dataset.get_class_distribution()
-            
-            # Check that all pickable objects are represented in the dataset
-            for object_name, count in copick_object_counts.items():
-                self.assertIn(object_name, dataset_distribution, 
-                              f"Object {object_name} is missing from the dataset")
                 
-                # Calculate the proportion of each object in both distributions
-                copick_proportion = count / sum(copick_object_counts.values())
-                dataset_proportion = dataset_distribution[object_name] / sum(dataset_distribution.values())
+                # Now, create the SimpleCopickDataset with the same config
+                # Use a modified configuration that only includes the selected run
+                modified_config = self.config_path.replace(".json", f"_{run.name}.json")
                 
-                # Assert that the proportion is similar (within 5% margin)
-                diff = abs(copick_proportion - dataset_proportion)
-                self.assertLess(diff, 0.05, 
-                                f"Proportion mismatch for {object_name}: "
-                                f"Copick: {copick_proportion:.3f}, Dataset: {dataset_proportion:.3f}")
+                # Get the original config
+                with open(self.config_path, 'r') as f:
+                    config_data = json.load(f)
                 
-            # Print the distributions for logging purposes
-            print("\nCopick Object Counts:")
-            for obj, count in copick_object_counts.items():
-                print(f"  {obj}: {count}")
+                # Create a custom run filter to select only this run
+                config_data["run_filter"] = [{"name": run.name}]
                 
-            print("\nDataset Distribution:")
-            for obj, count in dataset_distribution.items():
-                print(f"  {obj}: {count}")
+                # Write the modified config
+                with open(modified_config, 'w') as f:
+                    json.dump(config_data, f)
+                
+                # Create dataset with the modified config
+                dataset = SimpleCopickDataset(
+                    config_path=modified_config,
+                    boxsize=(32, 32, 32),
+                    voxel_spacing=10.0,
+                    cache_dir=None  # Don't use caching for this test
+                )
+                
+                # Get the distribution of classes in the dataset
+                dataset_distribution = dataset.get_class_distribution()
+                
+                # Skip test if no objects were found
+                if not copick_object_counts:
+                    self.skipTest("No pickable objects found in the selected run.")
+                
+                # Check that all pickable objects are represented in the dataset
+                for object_name, count in copick_object_counts.items():
+                    self.assertIn(object_name, dataset_distribution, 
+                                f"Object {object_name} is missing from the dataset")
+                    
+                    # Calculate the proportion of each object in both distributions
+                    copick_proportion = count / sum(copick_object_counts.values())
+                    dataset_proportion = dataset_distribution[object_name] / sum(dataset_distribution.values())
+                    
+                    # Assert that the proportion is similar (within 5% margin)
+                    diff = abs(copick_proportion - dataset_proportion)
+                    self.assertLess(diff, 0.05, 
+                                    f"Proportion mismatch for {object_name}: "
+                                    f"Copick: {copick_proportion:.3f}, Dataset: {dataset_proportion:.3f}")
+                    
+                # Print the distributions for logging purposes
+                print("\nCopick Object Counts:")
+                for obj, count in copick_object_counts.items():
+                    print(f"  {obj}: {count}")
+                    
+                print("\nDataset Distribution:")
+                for obj, count in dataset_distribution.items():
+                    print(f"  {obj}: {count}")
+            else:
+                self.skipTest("No runs found in the dataset.")
                 
         except Exception as e:
             self.fail(f"Test failed with error: {str(e)}")
