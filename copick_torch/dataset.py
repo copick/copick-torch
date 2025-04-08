@@ -6,6 +6,7 @@ import torch
 import pickle
 import random
 import pandas as pd
+import matplotlib.pyplot as plt
 from pathlib import Path
 from datetime import datetime
 import logging
@@ -13,6 +14,10 @@ from collections import Counter
 from typing import Dict, List, Tuple, Union, Optional, Any
 from torch.utils.data import Dataset, ConcatDataset, Subset
 from scipy.ndimage import gaussian_filter
+# Import these at module level to avoid pickling issues
+from scipy.ndimage import binary_dilation
+from skimage import measure
+from skimage.transform import resize
 
 class SimpleDatasetMixin:
     """
@@ -967,7 +972,6 @@ class SplicedMixupDataset(SimpleCopickDataset):
         
         if max_z <= 0 or max_y <= 0 or max_x <= 0:
             # Tomogram is smaller than crop size in at least one dimension
-            from skimage.transform import resize
             return resize(tomogram_data, crop_size, mode='reflect', anti_aliasing=True)
         
         # Get random start coordinates
@@ -986,10 +990,6 @@ class SplicedMixupDataset(SimpleCopickDataset):
         
     def _extract_bounding_box(self, mask_data, mask_name):
         """Extract a bounding box for a connected component in a segmentation mask."""
-        from skimage import measure
-        from skimage.transform import resize
-        from scipy.ndimage import binary_dilation
-        
         # Label connected components
         labels = measure.label(mask_data > 0)
         regions = measure.regionprops(labels)
@@ -1074,7 +1074,6 @@ class SplicedMixupDataset(SimpleCopickDataset):
         if self.blend_sigma > 0:
             try:
                 # Create a weight map that transitions smoothly across the boundary
-                from scipy.ndimage import gaussian_filter
                 weight_map = gaussian_filter(region_mask.astype(float), sigma=self.blend_sigma)
                 weight_map = np.clip(weight_map, 0, 1)
                 

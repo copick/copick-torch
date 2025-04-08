@@ -64,13 +64,30 @@ def main():
         dataset,
         batch_size=batch_size,
         sampler=sampler,
-        num_workers=4 if multiprocessing.cpu_count() > 4 else 1
+        num_workers=0  # Use single process data loading to avoid pickling issues
     )
 
-    # Get a batch for visualization
-    for inputs, labels in dataloader:
+    # Try to load a single batch for visualization
+    try:
+        batch = next(iter(dataloader))
+        inputs, labels = batch
         visualize_batch(inputs, labels, dataset.keys())
-        break
+    except Exception as e:
+        print(f"\nError during visualization: {str(e)}")
+        # Try to extract a single item directly from the dataset
+        print("\nTrying to extract a single item directly from the dataset...")
+        try:
+            if len(dataset) > 0:
+                sample = dataset[0]
+                print(f"Successfully extracted single item with shape {sample[0].shape}")
+                # Create a mini-batch of 1 item for visualization
+                inputs = sample[0].unsqueeze(0)  # Add batch dimension
+                labels = torch.tensor([sample[1]])  # Convert to tensor with batch dimension
+                visualize_batch(inputs, labels, dataset.keys())
+            else:
+                print("Dataset is empty.")
+        except Exception as e2:
+            print(f"Error extracting single item: {str(e2)}")
 
 def visualize_batch(inputs, labels, class_names):
     """Visualize a batch of 3D subvolumes."""
