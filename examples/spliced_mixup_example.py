@@ -29,12 +29,13 @@ def main():
         augment=True,                 # Enable basic augmentations
         cache_dir='./cache',          # Cache directory
         cache_format='parquet',       # Cache format
-        voxel_spacing=10.0,           # Voxel spacing
+        voxel_spacing=10.012,           # Voxel spacing (use the exact spacing for best results)
         include_background=True,      # Include background samples
         background_ratio=0.2,         # Background ratio
         min_background_distance=48,   # Minimum distance from particles for background
         blend_sigma=2.0,              # Sigma for Gaussian blending
-        mixup_alpha=0.2               # Alpha parameter for mixup
+        mixup_alpha=0.2,              # Alpha parameter for mixup
+        max_samples=100               # Maximum number of samples to generate
     )
 
     # Print dataset information
@@ -85,17 +86,32 @@ def visualize_batch(inputs, labels, class_names):
     
     # Create visualization
     batch_size = inputs.shape[0]
-    fig, axes = plt.subplots(2, 4, figsize=(16, 8))
-    axes = axes.flatten()
+    fig, axes = plt.subplots(3, 4, figsize=(16, 12)) # 3 rows for XY, YZ, XZ planes
     
-    for i in range(min(batch_size, 8)):
-        # Get central slice of each volume
-        middle_slice = inputs[i, 0, inputs.shape[2]//2, :, :]
+    for i in range(min(batch_size, 4)):
+        # Get central slices along each axis
+        voldata = inputs[i, 0].numpy()
+        slice_z = voldata.shape[0] // 2
+        slice_y = voldata.shape[1] // 2
+        slice_x = voldata.shape[2] // 2
         
-        # Display the slice
-        axes[i].imshow(middle_slice.numpy(), cmap='gray')
-        axes[i].set_title(f"Class: {label_names[i]}")
-        axes[i].axis('off')
+        # Display XY plane (Z slice)
+        xy_slice = voldata[slice_z, :, :]
+        axes[0, i].imshow(xy_slice, cmap='gray')
+        axes[0, i].set_title(f"Class: {label_names[i]}\nXY Plane (Z={slice_z})")
+        axes[0, i].axis('off')
+        
+        # Display YZ plane (X slice)
+        yz_slice = voldata[:, :, slice_x]
+        axes[1, i].imshow(yz_slice, cmap='gray')
+        axes[1, i].set_title(f"YZ Plane (X={slice_x})")
+        axes[1, i].axis('off')
+        
+        # Display XZ plane (Y slice)
+        xz_slice = voldata[:, slice_y, :]
+        axes[2, i].imshow(xz_slice, cmap='gray')
+        axes[2, i].set_title(f"XZ Plane (Y={slice_y})")
+        axes[2, i].axis('off')
     
     plt.tight_layout()
     plt.savefig("spliced_mixup_visualization.png")
