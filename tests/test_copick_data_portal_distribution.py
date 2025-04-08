@@ -3,6 +3,7 @@ import os
 import tempfile
 import shutil
 import json
+import pytest
 import numpy as np
 from collections import Counter
 
@@ -41,8 +42,57 @@ class TestCopickDataPortalDistribution(unittest.TestCase):
             "overlay_fs_args": {
                 "auto_mkdir": True
             },
-            "dataset_ids": [cls.dataset_id]
-        }
+            "dataset_ids": [cls.dataset_id],
+            "pickable_objects": [
+                {
+                    "name": "cytosolic-ribosome",
+                    "go_id": "GO:0022626",
+                    "is_particle": True,
+                    "label": 1,
+                    "color": [0, 255, 0, 255],
+                    "radius": 50.0
+                },
+                {
+                    "name": "beta-amylase",
+                    "go_id": "UniProtKB:P10537",
+                    "is_particle": True,
+                    "label": 2,
+                    "color": [255, 0, 255, 255],
+                    "radius": 50.0
+                },
+                {
+                    "name": "thyroglobulin",
+                    "go_id": "UniProtKB:P01267",
+                    "is_particle": True,
+                    "label": 3,
+                    "color": [0, 127, 255, 255],
+                    "radius": 50.0
+                },
+                {
+                    "name": "virus-like-capsid",
+                    "go_id": "GO:0170047",
+                    "is_particle": True,
+                    "label": 4,
+                    "color": [255, 127, 0, 255],
+                    "radius": 50.0
+                },
+                {
+                    "name": "ferritin-complex",
+                    "go_id": "GO:0070288",
+                    "is_particle": True,
+                    "label": 5,
+                    "color": [127, 191, 127, 255],
+                    "radius": 50.0
+                },
+                {
+                    "name": "beta-galactosidase",
+                    "go_id": "UniProtKB:P00722",
+                    "is_particle": True,
+                    "label": 6,
+                    "color": [94, 6, 164, 255],
+                    "radius": 50.0
+                }
+            ]
         
         # Write the config to file
         with open(cls.config_path, 'w') as f:
@@ -53,6 +103,10 @@ class TestCopickDataPortalDistribution(unittest.TestCase):
         """Clean up test environment."""
         shutil.rmtree(cls.temp_dir)
     
+    @pytest.mark.skipif(
+        not os.path.exists("./overlay"),
+        reason="Overlay directory not found. This test requires network access to the CryoET Data Portal."
+    )
     def test_pickable_object_distribution(self):
         """
         Test that the distribution of pickable objects in SimpleCopickDataset
