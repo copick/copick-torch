@@ -18,6 +18,9 @@ uv run examples/spliced_mixup_example.py
 
 # SplicedMixup with Fourier augmentation visualization
 uv run examples/spliced_mixup_fourier_example.py
+
+# Generate augmentation documentation
+python scripts/generate_augmentation_docs.py
 ```
 
 ## Features
@@ -44,6 +47,12 @@ fourier_aug = FourierAugment3D(
 # Apply to a 3D volume
 augmented_volume = fourier_aug(volume)
 ```
+
+### Documentation
+
+See the [docs directory](./docs) for documentation and examples:
+
+- [Augmentation Examples](./docs/augmentation_examples): Visualizations of various augmentations applied to different classes from the dataset used in the `spliced_mixup_example.py` example.
 
 ## Citation
 
