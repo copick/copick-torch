@@ -8,6 +8,22 @@ Torch utilities for [copick](https://github.com/copick/copick)
 
 `uv run examples/simple_training.py`
 
+## Citation
+
+If you use `copick-torch` in your research, please cite:
+
+```bibtex
+@article{harrington2024open,
+  title={Open-source Tools for CryoET Particle Picking Machine Learning Competitions},
+  author={Harrington, Kyle I. and Zhao, Zhuowen and Schwartz, Jonathan and Kandel, Saugat and Ermel, Utz and Paraan, Mohammadreza and Potter, Clinton and Carragher, Bridget},
+  journal={bioRxiv},
+  year={2024},
+  doi={10.1101/2024.11.04.621608}
+}
+```
+
+This software was introduced in a NeurIPS 2024 Workshop on Machine Learning in Structural Biology as "Open-source Tools for CryoET Particle Picking Machine Learning Competitions".
+
 ## Development
 
 ### Install development dependencies
