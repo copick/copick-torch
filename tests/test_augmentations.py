@@ -42,9 +42,6 @@ def test_mixup_transform():
     # Check second sample: Should be 0.7*1 + 0.3*0 = 0.7
     assert torch.allclose(mixed_x[1, 0, 0, 0, 0], torch.tensor(0.7), atol=1e-6)
     
-    # Test mixup expected loss with lambda=0.7
-    assert torch.allclose(torch.tensor(1.6), torch.tensor(0.7), atol=1.0)
-    
     # Test mixup_criterion
     def dummy_criterion(pred, target):
         return torch.abs(pred - target).mean()
