@@ -18,6 +18,7 @@ from scipy.ndimage import gaussian_filter
 from scipy.ndimage import binary_dilation
 from skimage import measure
 from skimage.transform import resize
+from .augmentations import FourierAugment3D
 
 class SimpleDatasetMixin:
     """
