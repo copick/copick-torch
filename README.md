@@ -16,7 +16,7 @@ uv run examples/fourier_augmentation_demo.py
 # SplicedMixup with Gaussian blur visualization
 uv run examples/spliced_mixup_example.py
 
-# SplicedMixup with Fourier augmentation visualization
+# SplicedMixup with Fourier augmentation visualization (visualization only)
 uv run examples/spliced_mixup_fourier_example.py
 ```
 

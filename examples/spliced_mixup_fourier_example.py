@@ -3,6 +3,9 @@ Example demonstrating the use of SplicedMixupDataset with Fourier augmentation v
 
 This script shows how to use the SplicedMixupDataset for balanced sampling and synthetic-experimental data splicing,
 with visualization that uses Fourier domain augmentation instead of Gaussian blur.
+
+Note: The SplicedMixupDataset still uses Gaussian-based blending for the boundary regions between
+synthetic and experimental data. Only the visualization method is changed to use Fourier augmentation.
 """
 
 import torch
@@ -22,6 +25,7 @@ def main():
     os.makedirs("./cache", exist_ok=True)
 
     # Basic usage of SplicedMixupDataset
+    # Note: blend_sigma controls Gaussian-based boundary blending in the dataset
     dataset = SplicedMixupDataset(
         exp_dataset_id=10440,         # Experimental dataset ID
         synth_dataset_id=10441,       # Synthetic dataset ID
@@ -69,7 +73,7 @@ def main():
         num_workers=0  # Use single process data loading to avoid pickling issues
     )
 
-    # Create Fourier augmenter for visualization
+    # Create Fourier augmenter for visualization only
     fourier_aug = FourierAugment3D(
         freq_mask_prob=0.3,
         phase_noise_std=0.1,
@@ -83,7 +87,7 @@ def main():
         visualize_batch(inputs, labels, dataset.keys(), fourier_aug)
         
         # Add comparison between Gaussian blur and Fourier augmentation
-        compare_gaussian_vs_fourier(inputs, fourier_aug)
+        compare_visualization_methods(inputs, fourier_aug)
     except Exception as e:
         print(f"\nError during visualization: {str(e)}")
         # Try to extract a single item directly from the dataset
@@ -98,7 +102,7 @@ def main():
                 visualize_batch(inputs, labels, dataset.keys(), fourier_aug)
                 
                 # Add comparison between Gaussian blur and Fourier augmentation
-                compare_gaussian_vs_fourier(inputs, fourier_aug)
+                compare_visualization_methods(inputs, fourier_aug)
             else:
                 print("Dataset is empty.")
         except Exception as e2:
@@ -156,8 +160,8 @@ def visualize_batch(inputs, labels, class_names, fourier_aug):
     
     print(f"Visualization saved to spliced_mixup_fourier_visualization.png")
 
-def compare_gaussian_vs_fourier(inputs, fourier_aug):
-    """Compare visualization with Gaussian blur vs Fourier augmentation."""
+def compare_visualization_methods(inputs, fourier_aug):
+    """Compare different visualization enhancement methods."""
     from scipy.ndimage import gaussian_filter
     
     if inputs.shape[0] == 0:
@@ -195,10 +199,10 @@ def compare_gaussian_vs_fourier(inputs, fourier_aug):
     axes[2].axis('off')
     
     plt.tight_layout()
-    plt.savefig("gaussian_vs_fourier_comparison.png")
+    plt.savefig("visualization_methods_comparison.png")
     plt.show()
     
-    print(f"Comparison visualization saved to gaussian_vs_fourier_comparison.png")
+    print(f"Comparison visualization saved to visualization_methods_comparison.png")
 
 if __name__ == "__main__":
     # This is required for multiprocessing on macOS
