@@ -196,9 +196,13 @@ class FourierAugment3D(RandomizableTransform, Fourier):
         is_channel_first = len(volume.shape) == 4
         
         if is_channel_first:
-            # Process each channel independently
+            # Process each channel independently with different random parameters
+            # to ensure channel diversity
             output = []
             for channel in range(volume.shape[0]):
+                # Re-randomize parameters for each channel to ensure diversity
+                if randomize:
+                    self.randomize(volume[channel].shape)
                 aug_channel = self._apply_fourier_aug(volume[channel])
                 output.append(aug_channel)
             return torch.stack(output)
