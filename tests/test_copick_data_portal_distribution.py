@@ -104,10 +104,6 @@ class TestCopickDataPortalDistribution(unittest.TestCase):
         """Clean up test environment."""
         shutil.rmtree(cls.temp_dir)
     
-    @pytest.mark.skipif(
-        not os.path.exists("./overlay"),
-        reason="Overlay directory not found. This test requires network access to the CryoET Data Portal."
-    )
     def test_pickable_object_distribution(self):
         """
         Test that the distribution of pickable objects in SimpleCopickDataset
