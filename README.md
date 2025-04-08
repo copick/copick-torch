@@ -6,7 +6,38 @@ Torch utilities for [copick](https://github.com/copick/copick)
 
 ## Quick demo
 
-`uv run examples/simple_training.py`
+```bash
+# Simple training example
+uv run examples/simple_training.py
+
+# Fourier augmentation demo
+uv run examples/fourier_augmentation_demo.py
+```
+
+## Features
+
+### Augmentations
+
+`copick-torch` includes various data augmentation techniques for 3D tomographic data:
+
+- **MixupAugmentation**: Implements the mixup technique (Zhang et al., 2018) for 3D volumes, creating virtual training examples by mixing pairs of inputs and their labels with a random proportion.
+- **FourierAugment3D**: Implements Fourier-based augmentation that operates in the frequency domain, including random frequency dropout, phase noise injection, and intensity scaling.
+
+Example usage of Fourier augmentation:
+
+```python
+from copick_torch.augmentations import FourierAugment3D
+
+# Create the augmenter
+fourier_aug = FourierAugment3D(
+    freq_mask_prob=0.3,        # Probability of masking frequency components
+    phase_noise_std=0.1,       # Standard deviation of phase noise
+    intensity_scaling_range=(0.8, 1.2)  # Range for random intensity scaling
+)
+
+# Apply to a 3D volume
+augmented_volume = fourier_aug(volume)
+```
 
 ## Citation
 
