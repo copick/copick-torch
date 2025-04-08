@@ -56,8 +56,9 @@ class MixupTransform(RandomizableTransform):
         else:
             self.lam = 1.0
             
-        # Ensure lam is within reasonable bounds
-        self.lam = max(self.lam, 1 - self.lam)
+        # Comment: Previous implementation had a bug that maximized lambda
+        # Ensure lambda is between 0 and 1
+        self.lam = min(max(self.lam, 0.0), 1.0)
     
     def __call__(self, img: torch.Tensor, randomize: bool = True) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, float]:
         """
