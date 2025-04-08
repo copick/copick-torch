@@ -93,6 +93,7 @@ class TestCopickDataPortalDistribution(unittest.TestCase):
                     "radius": 50.0
                 }
             ]
+        }
         
         # Write the config to file
         with open(cls.config_path, 'w') as f:
