@@ -28,10 +28,16 @@ class TestMixupAugmentation(unittest.TestCase):
         self.assertEqual(mixup.alpha, 0.5)
         
     @patch('numpy.random.beta')
-    def test_call(self, mock_beta):
+    @patch('torch.randperm')
+    def test_call(self, mock_randperm, mock_beta):
         """Test the __call__ method of MixupAugmentation."""
-        # Configure the mock to return a fixed value
+        # Configure the mock to return a fixed value for beta
         mock_beta.return_value = 0.7
+        
+        # Configure randperm to return a fixed permutation that's guaranteed to be different
+        # Create a permutation that swaps the first and second elements
+        fixed_perm = torch.tensor([1, 0, 3, 2])
+        mock_randperm.return_value = fixed_perm
         
         mixup = MixupAugmentation(alpha=0.2)
         
@@ -46,12 +52,16 @@ class TestMixupAugmentation(unittest.TestCase):
         # Verify lambda value
         self.assertEqual(lam, 0.7)
         
-        # Ensure the mock was called with correct parameters
-        mock_beta.assert_called_once_with(0.2, 0.2)
+        # Verify the labels are correctly permuted
+        self.assertTrue(torch.equal(label_b, self.labels[fixed_perm]))
         
-        # Instead of testing exact mixing, just check that the values differ from inputs
-        # This avoids issues with the random permutation
-        self.assertFalse(torch.allclose(mixed_images, self.images))
+        # Ensure the mocks were called with correct parameters
+        mock_beta.assert_called_once_with(0.2, 0.2)
+        mock_randperm.assert_called_once()
+        
+        # Verify mixing computation: mixed = lambda*original + (1-lambda)*permuted
+        expected_mixed = 0.7 * self.images + 0.3 * self.images[fixed_perm]
+        self.assertTrue(torch.allclose(mixed_images, expected_mixed))
             
     def test_call_with_zero_alpha(self):
         """Test mixup with alpha=0 which should return original images."""
