@@ -591,6 +591,15 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
             k = random.randint(1, 3)  # 90, 180, or 270 degrees
             axes = tuple(random.sample([0, 1, 2], 2))  # Select 2 random axes
             subvolume = np.rot90(subvolume, k=k, axes=axes)
+        
+        # Apply Fourier domain augmentation
+        if random.random() < 0.3:  # 30% chance to apply Fourier augmentation
+            fourier_aug = FourierAugment3D(
+                freq_mask_prob=0.3,
+                phase_noise_std=0.1,
+                intensity_scaling_range=(0.8, 1.2)
+            )
+            subvolume = fourier_aug(subvolume)
             
         return subvolume
     
