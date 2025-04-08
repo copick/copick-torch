@@ -179,7 +179,7 @@ class TestCopickDataPortalDistribution(unittest.TestCase):
         dataset = SimpleCopickDataset(
             config_path=self.config_path,
             boxsize=(32, 32, 32),
-            voxel_spacing=10.0,
+            voxel_spacing=10.012,
             cache_dir=None  # Don't use caching for this test
         )
         
