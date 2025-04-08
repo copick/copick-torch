@@ -3,6 +3,10 @@ import torch
 import numpy as np
 import torch.fft
 
+# Import MONAI-based implementations
+from copick_torch.monai_augmentations import MixupTransform, FourierAugment3D as MONAIFourierAugment3D
+
+# Legacy implementation, use MixupTransform from monai_augmentations.py instead
 class MixupAugmentation:
     """
     Implements Mixup augmentation for 3D volumes.
@@ -76,6 +80,7 @@ class MixupAugmentation:
         return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 
+# Legacy implementation, use FourierAugment3D from monai_augmentations.py instead
 class FourierAugment3D:
     """
     Implements Fourier-based augmentation for 3D volumes.

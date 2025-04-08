@@ -13,6 +13,9 @@ uv run examples/simple_training.py
 # Fourier augmentation demo
 uv run examples/fourier_augmentation_demo.py
 
+# MONAI-based augmentation demo
+uv run examples/monai_augmentation_demo.py
+
 # SplicedMixup with Gaussian blur visualization
 uv run examples/spliced_mixup_example.py
 
@@ -32,9 +35,17 @@ python scripts/generate_augmentation_docs.py
 - **MixupAugmentation**: Implements the mixup technique (Zhang et al., 2018) for 3D volumes, creating virtual training examples by mixing pairs of inputs and their labels with a random proportion.
 - **FourierAugment3D**: Implements Fourier-based augmentation that operates in the frequency domain, including random frequency dropout, phase noise injection, and intensity scaling.
 
+#### MONAI-based Augmentations
+
+The library now provides MONAI-based implementations of the augmentations, offering better integration with MONAI pipelines and standards:
+
+- **MixupTransform**: MONAI-compatible implementation of the Mixup technique.
+- **FourierAugment3D**: MONAI-compatible implementation of Fourier-based augmentation.
+
 Example usage of Fourier augmentation:
 
 ```python
+# Legacy implementation
 from copick_torch.augmentations import FourierAugment3D
 
 # Create the augmenter
@@ -46,6 +57,24 @@ fourier_aug = FourierAugment3D(
 
 # Apply to a 3D volume
 augmented_volume = fourier_aug(volume)
+```
+
+Example usage of MONAI-based Fourier augmentation:
+
+```python
+# MONAI implementation
+from copick_torch.monai_augmentations import FourierAugment3D
+
+# Create the augmenter
+fourier_aug = FourierAugment3D(
+    freq_mask_prob=0.3,        # Probability of masking frequency components
+    phase_noise_std=0.1,       # Standard deviation of phase noise
+    intensity_scaling_range=(0.8, 1.2),  # Range for random intensity scaling
+    prob=1.0                   # Probability of applying the transform
+)
+
+# Apply to a 3D volume (with PyTorch tensor)
+augmented_volume = fourier_aug(volume_tensor)
 ```
 
 ### Documentation
