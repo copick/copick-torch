@@ -12,6 +12,12 @@ uv run examples/simple_training.py
 
 # Fourier augmentation demo
 uv run examples/fourier_augmentation_demo.py
+
+# SplicedMixup with Gaussian blur visualization
+uv run examples/spliced_mixup_example.py
+
+# SplicedMixup with Fourier augmentation visualization
+uv run examples/spliced_mixup_fourier_example.py
 ```
 
 ## Features
