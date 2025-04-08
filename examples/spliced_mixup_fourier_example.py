@@ -35,7 +35,7 @@ def main():
         include_background=True,      # Include background samples
         background_ratio=0.2,         # Background ratio
         min_background_distance=48,   # Minimum distance from particles for background
-        blend_sigma=2.0,              # Controls the size of the boundary region for random pixel selection
+        blend_sigma=2.0,              # Controls the standard deviation of Gaussian blending at boundaries
         mixup_alpha=0.2,              # Alpha parameter for mixup
         max_samples=100               # Maximum number of samples to generate
     )
