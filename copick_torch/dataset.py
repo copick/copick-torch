@@ -706,7 +706,7 @@ class SplicedMixupDataset(SimpleCopickDataset):
         # Initialize the parent class (SimpleCopickDataset)
         # We'll override certain methods to use our in-memory zarr arrays
         super().__init__(
-            copick_root=self.exp_root,  # Use experimental data as the base
+            copick_root=self.exp_root if hasattr(self, 'exp_root') else None,  # Use experimental data as the base
             boxsize=boxsize,
             augment=augment,
             cache_dir=cache_dir,
