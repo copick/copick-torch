@@ -136,23 +136,14 @@ def run_multiple_augmentations(volume, num_augmentations=5):
                      save_path='monai_fourier_augmentations.png')
 
 
-def demonstrate_monai_vs_legacy():
-    """Compare MONAI-based implementation with legacy implementation."""
+def demonstrate_monai_implementation():
+    """Demonstrate the MONAI-based implementation."""
     # Generate synthetic volume 
     volume = generate_synthetic_volume(size=64, num_spheres=8)
     volume_tensor = torch.from_numpy(volume)
     
-    # Import legacy augmentation
-    from copick_torch.augmentations import FourierAugment3D as LegacyFourierAugment3D
-    
-    # Create both augmenters with same parameters
+    # Create the augmenter with defined parameters
     monai_aug = FourierAugment3D(
-        freq_mask_prob=0.3,
-        phase_noise_std=0.1,
-        intensity_scaling_range=(0.8, 1.2)
-    )
-    
-    legacy_aug = LegacyFourierAugment3D(
         freq_mask_prob=0.3,
         phase_noise_std=0.1,
         intensity_scaling_range=(0.8, 1.2)
@@ -162,18 +153,13 @@ def demonstrate_monai_vs_legacy():
     torch.manual_seed(42)
     np.random.seed(42)
     
-    # Apply augmentations
-    monai_augmented = monai_aug(volume_tensor, randomize=True).numpy()
-    
-    # Reset random seed to use same parameters
-    torch.manual_seed(42)
-    np.random.seed(42)
-    legacy_augmented = legacy_aug(volume_tensor).numpy()
+    # Apply augmentation
+    augmented = monai_aug(volume_tensor, randomize=True).numpy()
     
     # Visualize comparison
-    titles = ['Original', 'MONAI Implementation', 'Legacy Implementation']
-    visualize_volumes([volume, monai_augmented, legacy_augmented], titles,
-                     save_path='monai_vs_legacy.png')
+    titles = ['Original', 'MONAI Fourier Augmentation']
+    visualize_volumes([volume, augmented], titles,
+                     save_path='monai_fourier_demo.png')
 
 
 def main():
@@ -216,8 +202,8 @@ def main():
     # Run and visualize multiple augmentations
     run_multiple_augmentations(volume)
     
-    # Compare MONAI-based implementation with legacy implementation
-    demonstrate_monai_vs_legacy()
+    # Demonstrate MONAI implementation with visualization
+    demonstrate_monai_implementation()
     
     print("Visualization images saved to the 'augmentation_output' directory.")
 
