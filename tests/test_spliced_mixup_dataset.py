@@ -16,11 +16,15 @@ class TestSplicedMixupDataset(unittest.TestCase):
             with patch('copick_torch.dataset.SimpleCopickDataset._load_or_process_data'):
                 with patch('copick_torch.dataset.SplicedMixupDataset._ensure_zarr_loaded'):
                     with patch('copick_torch.dataset.SplicedMixupDataset._generate_synthetic_samples'):
+                        # Mock the root so we don't get the ValueError
+                        mock_root = MagicMock()
                         self.dataset = SplicedMixupDataset(
                             exp_dataset_id=1,
                             synth_dataset_id=2,
                             blend_sigma=2.0
                         )
+                        # Manually set the root after initialization to bypass the validation
+                        self.dataset.copick_root = mock_root
 
     def test_splice_volumes_gaussian_blending(self):
         """Test the _splice_volumes method with Gaussian blending."""
