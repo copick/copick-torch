@@ -11,20 +11,35 @@ class TestSplicedMixupDataset(unittest.TestCase):
 
     def setUp(self):
         """Set up test case."""
-        # Create a mock instance of SplicedMixupDataset for testing
-        with patch('copick_torch.dataset.SplicedMixupDataset._load_copick_roots'):
-            with patch('copick_torch.dataset.SimpleCopickDataset._load_or_process_data'):
-                with patch('copick_torch.dataset.SplicedMixupDataset._ensure_zarr_loaded'):
-                    with patch('copick_torch.dataset.SplicedMixupDataset._generate_synthetic_samples'):
-                        # Mock the root so we don't get the ValueError
-                        mock_root = MagicMock()
-                        self.dataset = SplicedMixupDataset(
-                            exp_dataset_id=1,
-                            synth_dataset_id=2,
-                            blend_sigma=2.0
-                        )
-                        # Manually set the root after initialization to bypass the validation
-                        self.dataset.copick_root = mock_root
+        # Create patches for all required methods
+        load_copick_roots_patch = patch('copick_torch.dataset.SplicedMixupDataset._load_copick_roots')
+        load_process_data_patch = patch('copick_torch.dataset.SimpleCopickDataset._load_or_process_data')
+        ensure_zarr_patch = patch('copick_torch.dataset.SplicedMixupDataset._ensure_zarr_loaded')
+        generate_samples_patch = patch('copick_torch.dataset.SplicedMixupDataset._generate_synthetic_samples')
+        
+        # Start all patches
+        self.addCleanup(load_copick_roots_patch.stop)
+        self.addCleanup(load_process_data_patch.stop)
+        self.addCleanup(ensure_zarr_patch.stop)
+        self.addCleanup(generate_samples_patch.stop)
+        
+        load_copick_roots_patch.start()
+        load_process_data_patch.start()
+        ensure_zarr_patch.start()
+        generate_samples_patch.start()
+        
+        # The key: patch the validation check directly
+        with patch('copick_torch.dataset.SimpleCopickDataset.__init__', return_value=None):
+            self.dataset = SplicedMixupDataset(
+                exp_dataset_id=1,
+                synth_dataset_id=2,
+                blend_sigma=2.0
+            )
+            
+        # Set necessary attributes that would normally be set in initialization
+        self.dataset.blend_sigma = 2.0
+        self.dataset._subvolumes = []
+        self.dataset._molecule_ids = []
 
     def test_splice_volumes_gaussian_blending(self):
         """Test the _splice_volumes method with Gaussian blending."""
