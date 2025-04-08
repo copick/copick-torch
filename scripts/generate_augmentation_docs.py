@@ -20,7 +20,7 @@ from collections import defaultdict
 
 # Import necessary classes
 from copick_torch import SplicedMixupDataset, setup_logging
-from copick_torch.monai_augmentations import FourierAugment3D as MONAIFourierAugment3D
+from copick_torch.augmentations import FourierAugment3D
 
 # Set random seeds for reproducibility
 SEED = 42
@@ -85,7 +85,7 @@ def rotation_augmentation(volume, k=1, axes=(0, 1)):
 def fourier_augmentation(volume):
     """Apply Fourier domain augmentation using MONAI-based implementation."""
     # Create the augmentation object
-    fourier_aug = MONAIFourierAugment3D(
+    fourier_aug = FourierAugment3D(
         freq_mask_prob=0.3,
         phase_noise_std=0.1,
         intensity_scaling_range=(0.8, 1.2),

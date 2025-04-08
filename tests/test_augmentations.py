@@ -1,188 +1,162 @@
+"""Tests for the augmentations in copick-torch."""
+
+import pytest
 import torch
 import numpy as np
-import pytest
-from copick_torch.augmentations import MixupAugmentation, FourierAugment3D
+from copick_torch.augmentations import MixupTransform, FourierAugment3D
 
 
-def test_mixup_augmentation():
-    """Test MixupAugmentation on toy data."""
-    # Create sample data
+def test_mixup_transform():
+    """Test that MixupTransform produces expected outputs."""
+    # Create a batch of simple test volumes
     batch_size = 4
-    channels = 1
-    depth = 8
-    height = 8
-    width = 8
-    images = torch.randn((batch_size, channels, depth, height, width))
-    labels = torch.tensor([0, 1, 2, 3])
+    volume_shape = (3, 8, 8, 8)  # (channels, depth, height, width)
+    
+    # Create test data
+    x = torch.zeros((batch_size,) + volume_shape)
+    # Make each sample in batch unique
+    for i in range(batch_size):
+        x[i, :, :, :, :] = i
+    
+    # Test initialization
+    mixup = MixupTransform(alpha=0.2, prob=1.0)
+    
+    # Test with randomization
+    mixed_x, orig_x, mixed_idx_x, lam = mixup(x)
+    
+    # Check shapes
+    assert mixed_x.shape == x.shape
+    assert orig_x.shape == x.shape
+    assert mixed_idx_x.shape == x.shape
+    assert isinstance(lam, float)
+    
+    # Check mixing with known lambda
+    mixup.lam = 0.7  # Force lambda to a known value
+    mixup.index = torch.tensor([1, 0, 3, 2])  # Force permutation
+    
+    mixed_x, _, _, _ = mixup(x, randomize=False)
+    
+    # Check first sample: Should be 0.7*0 + 0.3*1 = 0.3
+    assert torch.allclose(mixed_x[0, 0, 0, 0, 0], torch.tensor(0.3), atol=1e-6)
+    
+    # Check second sample: Should be 0.7*1 + 0.3*0 = 0.7
+    assert torch.allclose(mixed_x[1, 0, 0, 0, 0], torch.tensor(0.7), atol=1e-6)
+    
+    # Test mixup_criterion
+    def dummy_criterion(pred, target):
+        return torch.abs(pred - target).mean()
+    
+    # Simple prediction and labels for testing
+    pred = torch.ones((batch_size,))
+    y_a = torch.zeros((batch_size,))
+    y_b = torch.ones((batch_size,)) * 2
+    lam = 0.7
+    
+    # Expected loss: 0.7 * |1-0| + 0.3 * |1-2| = 0.7 + 0.3 = 1.0
+    mixed_loss = MixupTransform.mixup_criterion(dummy_criterion, pred, y_a, y_b, lam)
+    assert torch.isclose(mixed_loss, torch.tensor(1.0), atol=1e-6)
+
+
+def test_fourier_augment3d():
+    """Test that FourierAugment3D produces expected outputs."""
+    # Create a test volume
+    volume = torch.ones((16, 16, 16))
+    
+    # Test initialization
+    aug = FourierAugment3D(
+        freq_mask_prob=0.3, 
+        phase_noise_std=0.1, 
+        intensity_scaling_range=(0.8, 1.2),
+        prob=1.0
+    )
+    
+    # Apply augmentation
+    augmented = aug(volume)
+    
+    # Check shape preservation
+    assert augmented.shape == volume.shape
+    
+    # Make sure the augmentation changed the volume (not identity)
+    assert not torch.allclose(augmented, volume, rtol=1e-3, atol=1e-3)
+    
+    # Test with zero phase noise and fixed intensity scale (should be close to identity
+    # if there's no masking)
+    aug = FourierAugment3D(
+        freq_mask_prob=0.0,  # No masking 
+        phase_noise_std=0.0,  # No phase noise
+        intensity_scaling_range=(1.0, 1.0),  # No intensity scaling
+        prob=1.0
+    )
+    
+    # Force parameters
+    aug._mask = None
+    aug._phase_noise = torch.zeros_like(volume)
+    aug._intensity_scale = 1.0
+    
+    # Apply augmentation without randomization
+    augmented = aug(volume, randomize=False)
+    
+    # Should be identity transform
+    assert torch.allclose(augmented, volume, rtol=1e-3, atol=1e-3)
+    
+
+def test_fourier_augment3d_channel_first():
+    """Test that FourierAugment3D works with channel-first inputs."""
+    # Create a test volume with channels
+    volume = torch.ones((3, 16, 16, 16))
+    
+    # Test initialization
+    aug = FourierAugment3D(
+        freq_mask_prob=0.3,
+        phase_noise_std=0.1,
+        intensity_scaling_range=(0.8, 1.2),
+        prob=1.0
+    )
+    
+    # Apply augmentation
+    augmented = aug(volume)
+    
+    # Check shape preservation
+    assert augmented.shape == volume.shape
+    
+    # Make sure the augmentation changed the volume
+    assert not torch.allclose(augmented, volume, rtol=1e-2, atol=1e-2)
+    
+    # Check that each channel was processed differently
+    # (Channels should differ from each other in augmented result)
+    assert not torch.allclose(augmented[0], augmented[1], rtol=1e-2, atol=1e-2)
+
+
+def test_zero_probability():
+    """Test that transforms with zero probability leave inputs unchanged."""
+    # Create test data
+    volume = torch.ones((16, 16, 16))
+    
+    # Test FourierAugment3D with zero probability
+    aug = FourierAugment3D(
+        freq_mask_prob=0.3,
+        phase_noise_std=0.1,
+        intensity_scaling_range=(0.8, 1.2),
+        prob=0.0  # Zero probability of applying transform
+    )
+    
+    # Apply augmentation
+    augmented = aug(volume)
+    
+    # Should be identity transform
+    assert torch.allclose(augmented, volume)
+    
+    # Test MixupTransform with zero probability
+    mixup = MixupTransform(alpha=0.2, prob=0.0)
+    
+    # Create a simple batch
+    batch = torch.ones((4, 3, 8, 8, 8))
     
     # Apply mixup
-    mixup = MixupAugmentation(alpha=0.2)
-    mixed_images, labels_a, labels_b, lam = mixup(images, labels)
+    mixed_x, orig_x, mixed_idx_x, lam = mixup(batch)
     
-    # Check output shapes
-    assert mixed_images.shape == images.shape
-    assert labels_a.shape == labels.shape
-    assert labels_b.shape == labels.shape
-    assert isinstance(lam, float)
-    assert 0.0 <= lam <= 1.0
+    # Lambda should be 1.0 (no mixing)
+    assert lam == 1.0
     
-    # Check mixup criterion
-    criterion = torch.nn.CrossEntropyLoss()
-    preds = torch.randn((batch_size, 4))  # 4 classes
-    loss = MixupAugmentation.mixup_criterion(criterion, preds, labels_a, labels_b, lam)
-    assert isinstance(loss, torch.Tensor)
-    assert loss.ndim == 0  # Scalar
-
-
-def test_fourier_augmentation_with_tensor():
-    """Test FourierAugment3D with PyTorch tensor input."""
-    # Create a test volume
-    volume = torch.randn((16, 16, 16))
-    
-    # Create augmenter
-    fourier_aug = FourierAugment3D(
-        freq_mask_prob=0.3,
-        phase_noise_std=0.1,
-        intensity_scaling_range=(0.8, 1.2)
-    )
-    
-    # Apply augmentation
-    augmented_volume = fourier_aug(volume)
-    
-    # Check output shape and type
-    assert augmented_volume.shape == volume.shape
-    assert isinstance(augmented_volume, torch.Tensor)
-    
-    # Check that the augmented volume is different from the original
-    assert not torch.allclose(volume, augmented_volume)
-
-
-def test_fourier_augmentation_with_numpy():
-    """Test FourierAugment3D with NumPy array input."""
-    # Create a test volume
-    volume = np.random.randn(16, 16, 16).astype(np.float32)
-    
-    # Create augmenter
-    fourier_aug = FourierAugment3D(
-        freq_mask_prob=0.3,
-        phase_noise_std=0.1,
-        intensity_scaling_range=(0.8, 1.2)
-    )
-    
-    # Apply augmentation
-    augmented_volume = fourier_aug(volume)
-    
-    # Check output shape and type
-    assert augmented_volume.shape == volume.shape
-    assert isinstance(augmented_volume, np.ndarray)
-    
-    # Check that the augmented volume is different from the original
-    assert not np.allclose(volume, augmented_volume)
-
-
-def test_fourier_augmentation_params():
-    """Test FourierAugment3D with different parameters."""
-    # Create a test volume
-    volume = torch.randn((16, 16, 16))
-    
-    # Test with higher frequency mask probability
-    high_freq_mask = FourierAugment3D(
-        freq_mask_prob=1.0,  # Always mask
-        phase_noise_std=0.0,  # No phase noise
-        intensity_scaling_range=(1.0, 1.0)  # No intensity scaling
-    )
-    high_freq_augmented = high_freq_mask(volume)
-    
-    # Test with higher phase noise
-    high_phase_noise = FourierAugment3D(
-        freq_mask_prob=0.0,  # No frequency masking
-        phase_noise_std=0.5,  # High phase noise
-        intensity_scaling_range=(1.0, 1.0)  # No intensity scaling
-    )
-    high_phase_augmented = high_phase_noise(volume)
-    
-    # Test with intensity scaling only
-    intensity_scaling = FourierAugment3D(
-        freq_mask_prob=0.0,  # No frequency masking
-        phase_noise_std=0.0,  # No phase noise
-        intensity_scaling_range=(0.5, 2.0)  # Higher intensity scaling range
-    )
-    intensity_augmented = intensity_scaling(volume)
-    
-    # Each augmentation should produce a different result
-    assert not torch.allclose(high_freq_augmented, high_phase_augmented)
-    assert not torch.allclose(high_freq_augmented, intensity_augmented)
-    assert not torch.allclose(high_phase_augmented, intensity_augmented)
-
-
-def test_fourier_augmentation_dimensions():
-    """Test FourierAugment3D with different input dimensions."""
-    # Create augmenter
-    fourier_aug = FourierAugment3D(
-        freq_mask_prob=0.3,
-        phase_noise_std=0.1,
-        intensity_scaling_range=(0.8, 1.2)
-    )
-    
-    # Test with different volume shapes
-    for shape in [(8, 8, 8), (16, 16, 16), (32, 32, 32), (16, 24, 32)]:
-        volume = torch.randn(shape)
-        augmented_volume = fourier_aug(volume)
-        
-        # Check output shape matches input shape
-        assert augmented_volume.shape == volume.shape
-
-
-def test_fourier_augmentation_error_handling():
-    """Test FourierAugment3D error handling."""
-    # Create augmenter
-    fourier_aug = FourierAugment3D(
-        freq_mask_prob=0.3,
-        phase_noise_std=0.1,
-        intensity_scaling_range=(0.8, 1.2)
-    )
-    
-    # Test with 2D input (should raise assertion error)
-    with pytest.raises(AssertionError):
-        volume_2d = torch.randn((16, 16))
-        fourier_aug(volume_2d)
-    
-    # Test with 4D input (should raise assertion error)
-    with pytest.raises(AssertionError):
-        volume_4d = torch.randn((1, 16, 16, 16))
-        fourier_aug(volume_4d)
-
-
-def test_fourier_augmentation_reproducibility():
-    """Test that FourierAugment3D produces reproducible results with the same seed."""
-    # Create a test volume
-    volume = torch.randn((16, 16, 16))
-    
-    # Set random seeds
-    torch.manual_seed(42)
-    np.random.seed(42)
-    
-    # Create augmenter
-    fourier_aug = FourierAugment3D(
-        freq_mask_prob=0.3,
-        phase_noise_std=0.1,
-        intensity_scaling_range=(0.8, 1.2)
-    )
-    
-    # Apply augmentation twice with the same seed
-    torch.manual_seed(42)
-    np.random.seed(42)
-    augmented_1 = fourier_aug(volume.clone())
-    
-    torch.manual_seed(42)
-    np.random.seed(42)
-    augmented_2 = fourier_aug(volume.clone())
-    
-    # Results should be identical
-    assert torch.allclose(augmented_1, augmented_2)
-    
-    # With a different seed, results should be different
-    torch.manual_seed(0)
-    np.random.seed(0)
-    augmented_3 = fourier_aug(volume.clone())
-    assert not torch.allclose(augmented_1, augmented_3)
+    # Original data should be unchanged
+    assert torch.allclose(mixed_x, batch)

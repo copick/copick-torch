@@ -17,7 +17,7 @@ from pathlib import Path
 # Add parent directory to path to import copick_torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from copick_torch.monai_augmentations import FourierAugment3D
+from copick_torch.augmentations import FourierAugment3D
 
 
 def generate_synthetic_volume(size=32, num_spheres=5):
