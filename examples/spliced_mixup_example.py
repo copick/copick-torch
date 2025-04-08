@@ -33,7 +33,7 @@ def main():
         include_background=True,      # Include background samples
         background_ratio=0.2,         # Background ratio
         min_background_distance=48,   # Minimum distance from particles for background
-        blend_sigma=2.0,              # Sigma for Gaussian blending
+        blend_sigma=2.0,              # Controls the size of the boundary region for random pixel selection
         mixup_alpha=0.2,              # Alpha parameter for mixup
         max_samples=100               # Maximum number of samples to generate
     )
@@ -90,7 +90,10 @@ def main():
             print(f"Error extracting single item: {str(e2)}")
 
 def visualize_batch(inputs, labels, class_names):
-    """Visualize a batch of 3D subvolumes."""
+    """Visualize a batch of 3D subvolumes with Gaussian blur for better visualization."""
+    # Import needed for Gaussian filter
+    from scipy.ndimage import gaussian_filter
+    
     # Convert class indices to class names
     label_names = []
     for l in labels.numpy():
@@ -108,24 +111,28 @@ def visualize_batch(inputs, labels, class_names):
     for i in range(min(batch_size, 4)):
         # Get central slices along each axis
         voldata = inputs[i, 0].numpy()
-        slice_z = voldata.shape[0] // 2
-        slice_y = voldata.shape[1] // 2
-        slice_x = voldata.shape[2] // 2
         
-        # Display XY plane (Z slice)
-        xy_slice = voldata[slice_z, :, :]
+        # Apply Gaussian blur for visualization purposes
+        vis_data = gaussian_filter(voldata, sigma=0.7)
+        
+        slice_z = vis_data.shape[0] // 2
+        slice_y = vis_data.shape[1] // 2
+        slice_x = vis_data.shape[2] // 2
+        
+        # Display XY plane (Z slice) with Gaussian blur
+        xy_slice = vis_data[slice_z, :, :]
         axes[0, i].imshow(xy_slice, cmap='gray')
         axes[0, i].set_title(f"Class: {label_names[i]}\nXY Plane (Z={slice_z})")
         axes[0, i].axis('off')
         
-        # Display YZ plane (X slice)
-        yz_slice = voldata[:, :, slice_x]
+        # Display YZ plane (X slice) with Gaussian blur
+        yz_slice = vis_data[:, :, slice_x]
         axes[1, i].imshow(yz_slice, cmap='gray')
         axes[1, i].set_title(f"YZ Plane (X={slice_x})")
         axes[1, i].axis('off')
         
-        # Display XZ plane (Y slice)
-        xz_slice = voldata[:, slice_y, :]
+        # Display XZ plane (Y slice) with Gaussian blur
+        xz_slice = vis_data[:, slice_y, :]
         axes[2, i].imshow(xz_slice, cmap='gray')
         axes[2, i].set_title(f"XZ Plane (Y={slice_y})")
         axes[2, i].axis('off')
