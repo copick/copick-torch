@@ -709,6 +709,80 @@ class SplicedMixupDataset(SimpleCopickDataset):
         # Load zarr arrays into memory if not already loaded
         self._ensure_zarr_loaded()
         
+        # Initialize dataset with a small number of samples to make sure the parent initialization works
+        # We will create our own samples from zarr arrays after parent initialization
+        
+        # Generate synthetic samples directly from zarr arrays
+        self._generate_synthetic_samples()
+        
+    def _generate_synthetic_samples(self):
+        """Generate synthetic samples directly from zarr arrays."""
+        print("Generating synthetic samples from zarr arrays...")
+        # Clear any existing samples
+        self._subvolumes = []
+        self._molecule_ids = []
+        self._keys = []
+        self._is_background = []
+        
+        num_samples = 100  # Default number of samples
+        if self.max_samples is not None:
+            num_samples = self.max_samples
+            
+        # Generate samples (half from experimental data, half from synthetic+experimental splice)
+        num_exp_samples = num_samples // 2
+        num_synth_samples = num_samples - num_exp_samples
+        
+        # Generate experimental samples
+        for i in range(num_exp_samples):
+            # Extract a random crop from experimental data
+            exp_crop = self._extract_random_crop(self._exp_zarr_data, self.boxsize)
+            self._subvolumes.append(exp_crop)
+            self._molecule_ids.append(-1)  # Background class
+            self._is_background.append(True)
+        
+        # Generate synthetic+experimental spliced samples
+        for i in range(num_synth_samples):
+            # Get a random mask name
+            mask_names = list(self._synth_mask_data.keys())
+            mask_name = random.choice(mask_names)
+            
+            # Extract a bounding box
+            bbox_info = self._extract_bounding_box(self._synth_mask_data[mask_name], mask_name)
+            
+            if bbox_info is not None:
+                # Extract a random crop from experimental data
+                exp_crop = self._extract_random_crop(self._exp_zarr_data, self.boxsize)
+                
+                # Splice the volumes
+                spliced_volume = self._splice_volumes(
+                    bbox_info['synth_region'],
+                    bbox_info['region_mask'],
+                    exp_crop
+                )
+                
+                # Add to dataset
+                self._subvolumes.append(spliced_volume)
+                
+                # Get or create molecule index
+                if bbox_info['object_name'] not in self._keys:
+                    self._keys.append(bbox_info['object_name'])
+                molecule_idx = self._keys.index(bbox_info['object_name'])
+                
+                self._molecule_ids.append(molecule_idx)
+                self._is_background.append(False)
+        
+        # Convert to numpy arrays
+        self._subvolumes = np.array(self._subvolumes)
+        self._molecule_ids = np.array(self._molecule_ids)
+        self._is_background = np.array(self._is_background)
+        
+        # Compute sample weights
+        self._compute_sample_weights()
+        
+        print(f"Generated {len(self._subvolumes)} samples with {len(self._keys)} classes")
+        print(f"Background samples: {sum(self._is_background)}")
+        print(f"Class distribution: {self.get_class_distribution()}")
+        
     def _load_copick_roots(self):
         """Load the experimental and synthetic copick roots."""
         try:
