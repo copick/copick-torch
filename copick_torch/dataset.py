@@ -660,7 +660,7 @@ class SplicedMixupDataset(SimpleCopickDataset):
         include_background: bool = False,
         background_ratio: float = 0.2,
         min_background_distance: Optional[float] = None,
-        blend_sigma: float = 2.0,  # Controls the size of the boundary region for random pixel selection
+        blend_sigma: float = 2.0,  # Controls the standard deviation of Gaussian blending at boundaries
         mixup_alpha: float = 0.2,
         debug_mode: bool = False
     ):
@@ -682,7 +682,7 @@ class SplicedMixupDataset(SimpleCopickDataset):
             include_background: Whether to include background samples
             background_ratio: Ratio of background to particle samples
             min_background_distance: Minimum distance from particles for background samples
-            blend_sigma: Controls the size of the boundary region for random pixel selection
+            blend_sigma: Controls the standard deviation of Gaussian blending at boundaries
             mixup_alpha: Alpha parameter for mixup augmentation
             debug_mode: Whether to enable debug mode
         """
@@ -1073,37 +1073,33 @@ class SplicedMixupDataset(SimpleCopickDataset):
         }
         
     def _splice_volumes(self, synthetic_region, region_mask, exp_crop):
-        """Splice a synthetic structure into an experimental tomogram using random pixel selection at the edges."""
+        """Splice a synthetic structure into an experimental tomogram using Gaussian blending at the edges."""
         # Create a spliced volume by starting with the experimental crop
         spliced_volume = exp_crop.copy()
         
-        # Replace the masked region with synthetic data
-        spliced_volume[region_mask] = synthetic_region[region_mask]
-        
-        # For the boundary region, randomly select pixels from either the experimental or synthetic data
+        # For Gaussian blending, create a weight map that transitions smoothly from 1 to 0
         if self.blend_sigma > 0:
             try:
-                # Create a dilated mask to identify the boundary region
-                core_mask = binary_dilation(region_mask, iterations=1)  # Internal mask
-                dilated_mask = binary_dilation(region_mask, iterations=int(self.blend_sigma * 1.5))  # Outer boundary
-                boundary_mask = dilated_mask & ~core_mask  # Only the boundary pixels
+                # Start with the region mask
+                mask_float = region_mask.astype(np.float32)
                 
-                # Generate random pixels for the boundary
-                random_choice = np.random.rand(*boundary_mask.shape) > 0.5
+                # Apply Gaussian blur to the mask to create a smooth transition at the boundaries
+                # This creates a weight map that goes from 1 (inside) to 0 (outside) with smooth transitions
+                weight_map = gaussian_filter(mask_float, sigma=self.blend_sigma)
                 
-                # Apply random pixel selection: where random_choice is True, use synthetic data
-                # otherwise use experimental data
-                boundary_indices = np.where(boundary_mask)
-                for i in range(len(boundary_indices[0])):
-                    z, y, x = boundary_indices[0][i], boundary_indices[1][i], boundary_indices[2][i]
-                    if random_choice[z, y, x]:
-                        spliced_volume[z, y, x] = synthetic_region[z, y, x]
-                    else:
-                        spliced_volume[z, y, x] = exp_crop[z, y, x]
-                        
+                # Normalize weight map to ensure it's between 0 and 1
+                weight_map = np.clip(weight_map, 0, 1)
+                
+                # Apply weighted blending: synthetic * weight + experimental * (1-weight)
+                spliced_volume = synthetic_region * weight_map + exp_crop * (1 - weight_map)
+                
             except Exception as e:
-                print(f"Error during random pixel selection at boundaries: {e}")
-                # Fall back to the non-blended result
+                print(f"Error during Gaussian blending at boundaries: {e}")
+                # Fall back to simple mask-based splicing
+                spliced_volume[region_mask] = synthetic_region[region_mask]
+        else:
+            # If blend_sigma is 0, just do simple mask-based splicing without blending
+            spliced_volume[region_mask] = synthetic_region[region_mask]
         
         return spliced_volume
     
