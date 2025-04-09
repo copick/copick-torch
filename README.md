@@ -70,8 +70,8 @@ uv run examples/spliced_mixup_fourier_example.py
 # Generate augmentation documentation
 python scripts/generate_augmentation_docs.py
 
-# Generate dataset documentation (both SimpleCopickDataset and MinimalCopickDataset)
-python scripts/generate_simple_dataset_docs.py
+# Generate dataset documentation
+python scripts/generate_dataset_examples.py
 ```
 
 ## Features
@@ -105,8 +105,7 @@ augmented_volume = fourier_aug(volume_tensor)
 See the [docs directory](./docs) for documentation and examples:
 
 - [Augmentation Examples](./docs/augmentation_examples): Visualizations of various augmentations applied to different classes from the dataset used in the `spliced_mixup_example.py` example.
-- [Simple Dataset Examples](./docs/simple_dataset_examples): Examples of volumes from each class in the dataset used by the `SimpleCopickDataset` class.
-- [Minimal Dataset Examples](./docs/minimal_dataset_examples): Examples of volumes from each class in the dataset used by the `MinimalCopickDataset` class.
+- [Dataset Examples](./docs/dataset_examples): Examples of volumes from each class in the dataset used by the CopickDataset classes.
 
 ## Citation
 
