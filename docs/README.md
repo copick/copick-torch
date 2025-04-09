@@ -2,7 +2,25 @@
 
 This directory contains documentation and examples for the Copick-Torch library.
 
-## Augmentation Examples
+## Dataset Examples
+
+### SimpleCopickDataset Examples
+
+The [simple_dataset_examples](./simple_dataset_examples) directory contains visualizations of examples from each class in the dataset used by the `SimpleCopickDataset` class.
+
+To generate these examples, run:
+
+```bash
+python scripts/generate_simple_dataset_docs.py
+```
+
+This will:
+1. Create a SimpleCopickDataset instance
+2. Extract one example from each class
+3. Save visualizations showing both central slices and sum projections in orthogonal views
+4. Generate a markdown file with all the visualizations
+
+### Augmentation Examples
 
 The [augmentation_examples](./augmentation_examples) directory contains visualizations of various augmentations applied to the dataset used in the `spliced_mixup_example.py` example.
 
