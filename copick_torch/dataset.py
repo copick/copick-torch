@@ -80,7 +80,9 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
         background_ratio: float = 0.2,
         min_background_distance: Optional[float] = None,
         patch_strategy: str = "centered",
-        debug_mode: bool = False
+        debug_mode: bool = False,
+        dataset_id: Optional[int] = None,
+        overlay_root: str = "/tmp/test/"
     ):
         """
         Initialize a SimpleCopickDataset.
