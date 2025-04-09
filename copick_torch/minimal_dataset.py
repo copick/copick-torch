@@ -130,6 +130,8 @@ class MinimalCopickDataset(Dataset):
                             logger.info(f"Found {len(points)} points for {object_name}")
                             
                             # Store the points and labels
+                            # Note: We store the original coordinates in physical space (not voxel indices)
+                            # These will be adjusted when extracting subvolumes
                             for point in points:
                                 all_points.append(point)
                                 all_labels.append(class_idx)
