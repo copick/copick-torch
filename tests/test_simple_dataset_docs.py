@@ -3,18 +3,20 @@
 Test script to ensure that class names match filenames in the simple_dataset_examples.
 """
 
+import unittest
 import os
 import re
-import unittest
-from pathlib import Path
 import tempfile
 import shutil
 import sys
+import zarr
+import numpy as np
+import random
+from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 # Add the script directory to the path to import generate_simple_dataset_docs
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-
-from generate_simple_dataset_docs import main as generate_docs
 
 
 class TestSimpleDatasetDocs(unittest.TestCase):
@@ -51,14 +53,61 @@ class TestSimpleDatasetDocs(unittest.TestCase):
             shutil.rmtree(cls.backup_dir)
             print(f"Restored original docs")
     
-    def test_class_name_to_filename_consistency(self):
+    @patch('zarr.open')
+    @patch('copick.from_czcdp_datasets')
+    def test_class_name_to_filename_consistency(self, mock_from_czcdp, mock_zarr_open):
         """
         Test that each class name in the markdown file correctly corresponds to a matching
         filename in the directory.
         
-        The test patches the output directory to a temporary location to avoid modifying
-        the actual documentation during tests.
+        The test patches the output directory and then run the generate_docs function
+        with mocked dependencies to avoid actual copick operations.
         """
+        # Set up mock for copick.from_czcdp_datasets
+        mock_copick_root = MagicMock()
+        mock_run = MagicMock()
+        mock_vs = MagicMock()
+        mock_tomogram = MagicMock()
+        mock_picks = MagicMock()
+        mock_po = MagicMock()
+        
+        # Configure mocks
+        mock_from_czcdp.return_value = mock_copick_root
+        mock_copick_root.runs = [mock_run]
+        mock_copick_root.pickable_objects = [
+            MagicMock(name="ferritin-complex"),
+            MagicMock(name="virus-like-capsid"),
+            MagicMock(name="cytosolic-ribosome"),
+            MagicMock(name="membrane"),
+            MagicMock(name="beta-galactosidase"),
+            MagicMock(name="beta-amylase"),
+            MagicMock(name="thyroglobulin")
+        ]
+        for po in mock_copick_root.pickable_objects:
+            po.name = po.name
+            
+        mock_run.name = "test_run"
+        mock_run.get_voxel_spacing.return_value = mock_vs
+        mock_vs.tomograms = [mock_tomogram]
+        mock_tomogram.tomo_type = "wbp-denoised"
+        
+        # Mock picks for each object type
+        mock_picks_list = []
+        for po in mock_copick_root.pickable_objects:
+            mock_pick = MagicMock()
+            mock_pick.from_tool = True
+            mock_pick.pickable_object_name = po.name
+            mock_pick.numpy.return_value = (np.array([[100, 100, 100]]), None)
+            mock_picks_list.append(mock_pick)
+        
+        mock_run.get_picks.return_value = mock_picks_list
+        
+        # Mock zarr.open to return a dummy array
+        mock_zarr_root = MagicMock()
+        mock_zarr_open.return_value = mock_zarr_root
+        mock_zarr_root.__getitem__.return_value = np.random.randn(100, 100, 100)
+        mock_tomogram.zarr.return_value = "dummy_zarr_path"
+        
         # We'll patch the output directory and then run the generate_docs function
         original_output_dir = Path("docs/simple_dataset_examples")
         temp_output_dir = Path(self.docs_dir) / "simple_dataset_examples"
@@ -79,6 +128,7 @@ class TestSimpleDatasetDocs(unittest.TestCase):
         
         try:
             # Run the document generation script
+            from generate_simple_dataset_docs import main as generate_docs
             generate_docs()
             
             # Verify the markdown file exists
@@ -126,6 +176,12 @@ class TestSimpleDatasetDocs(unittest.TestCase):
                 # Verify the file exists with the expected name
                 self.assertTrue((temp_output_dir / image_file).exists(), 
                                 f"Image file {image_file} does not exist")
+            
+            # Check that we have examples for all the expected pickable objects
+            expected_class_names = [po.name for po in mock_copick_root.pickable_objects] + ["background"]
+            for expected_class in expected_class_names:
+                self.assertIn(expected_class, class_names, 
+                            f"Missing example for expected class '{expected_class}'")
             
         finally:
             # Restore the original Path.__init__
