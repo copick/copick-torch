@@ -2,9 +2,9 @@
 """
 Script to generate documentation for the SimpleCopickDataset class.
 
-This script creates a SimpleCopickDataset instance using the same experimental
-dataset as generate_augmentation_docs.py, then saves an example volume
-from each class to provide a visual reference of the dataset contents.
+This script creates a SimpleCopickDataset instance using the experimental
+dataset ID 10440, then saves an example volume from each class with the
+correct labels to provide a visual reference of the dataset contents.
 """
 
 import torch
@@ -13,7 +13,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import os
 import random
+import copick
 from collections import defaultdict
+import logging
 
 # Import necessary classes
 from copick_torch import SimpleCopickDataset, setup_logging
@@ -84,10 +86,37 @@ def visualize_volume(volume, title, output_path, cmap='gray'):
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
 
+def get_pickable_objects_from_dataset(dataset_id, overlay_root="/tmp/test/"):
+    """
+    Get the pickable objects directly from the dataset.
+    
+    Args:
+        dataset_id: Dataset ID to query
+        overlay_root: The overlay root directory
+        
+    Returns:
+        A list of pickable object names
+    """
+    try:
+        # Create a temporary copick root object
+        copick_root = copick.from_czcdp_datasets([dataset_id], overlay_root=overlay_root)
+        
+        # Get pickable objects
+        pickable_objects = copick_root.pickable_objects
+        
+        # Extract names
+        object_names = [obj.name for obj in pickable_objects]
+        print(f"Found pickable objects: {object_names}")
+        
+        return object_names
+    except Exception as e:
+        print(f"Error getting pickable objects: {e}")
+        return []
+
 def main():
     """Main function to generate the documentation."""
     # Set up logging
-    setup_logging()
+    setup_logging(level=logging.INFO)
     
     # Create output directory
     output_dir = Path("docs/simple_dataset_examples")
@@ -99,20 +128,25 @@ def main():
     # Create cache directory if it doesn't exist
     os.makedirs("./cache", exist_ok=True)
 
+    # Get pickable objects directly from the dataset first
+    dataset_id = 10440  # Experimental dataset ID (same as in generate_augmentation_docs.py)
+    overlay_root = "/tmp/test/"
+    pickable_objects = get_pickable_objects_from_dataset(dataset_id, overlay_root)
+
     print("Loading dataset...")
-    # Create SimpleCopickDataset (use the same dataset ID as in generate_augmentation_docs.py)
+    # Create SimpleCopickDataset
     dataset = SimpleCopickDataset(
-        dataset_id=10440,           # Experimental dataset ID (same as in generate_augmentation_docs.py)
-        overlay_root="/tmp/test/",  # Overlay root directory
-        boxsize=(48, 48, 48),       # Size of the subvolumes
-        augment=False,              # Disable augmentations for examples
-        cache_dir='./cache',        # Cache directory
-        cache_format='parquet',     # Cache format
-        voxel_spacing=10.012,       # Voxel spacing (use the exact spacing for best results)
-        include_background=True,    # Include background samples
-        background_ratio=0.2,       # Background ratio
-        min_background_distance=48, # Minimum distance from particles for background
-        max_samples=100             # Maximum number of samples to generate
+        dataset_id=dataset_id,           # Experimental dataset ID
+        overlay_root=overlay_root,       # Overlay root directory
+        boxsize=(48, 48, 48),            # Size of the subvolumes
+        augment=False,                   # Disable augmentations for examples
+        cache_dir='./cache',             # Cache directory
+        cache_format='parquet',          # Cache format
+        voxel_spacing=10.012,            # Voxel spacing (use the exact spacing for best results)
+        include_background=True,         # Include background samples
+        background_ratio=0.2,            # Background ratio
+        min_background_distance=48,      # Minimum distance from particles for background
+        max_samples=200                  # Maximum number of samples to generate (increased to ensure all classes)
     )
 
     # Print dataset information
@@ -125,18 +159,43 @@ def main():
     for class_name, count in distribution.items():
         print(f"  {class_name}: {count} samples")
 
+    # Double check if keys match expected classes
+    if not dataset.keys():
+        print("WARNING: No class keys found in dataset. Using pickable object names instead.")
+        dataset._keys = pickable_objects
+
     # Collect one example from each class
     class_examples = {}
     class_indices = defaultdict(list)
     
     # First pass: collect indices by class
+    print("Collecting indices by class...")
     for i in range(len(dataset)):
         volume, label = dataset[i]
         if label == -1:
             class_name = "background"
         else:
-            class_name = dataset.keys()[label]
+            try:
+                # Make sure we're within bounds
+                if label < len(dataset.keys()):
+                    class_name = dataset.keys()[label]
+                else:
+                    print(f"WARNING: Label {label} is out of bounds for dataset keys. Skipping.")
+                    continue
+            except Exception as e:
+                print(f"Error getting class name for label {label}: {e}")
+                continue
+                
         class_indices[class_name].append(i)
+    
+    print(f"Found examples for these classes: {list(class_indices.keys())}")
+    
+    # If we're missing any expected classes, print a warning
+    expected_classes = set(pickable_objects + ["background"] if dataset.include_background else pickable_objects)
+    found_classes = set(class_indices.keys())
+    missing_classes = expected_classes - found_classes
+    if missing_classes:
+        print(f"WARNING: Could not find examples for these expected classes: {missing_classes}")
     
     # Second pass: get one example from each class
     for class_name, indices in class_indices.items():
@@ -157,7 +216,7 @@ def main():
             print(f"Processing class: {class_name}")
             
             # Create filename
-            filename = f"{class_name.lower().replace(' ', '_')}.png"
+            filename = f"{class_name.lower().replace(' ', '_').replace('-', '_')}.png"
             filepath = output_dir / filename
             
             # Normalize for visualization
@@ -194,7 +253,7 @@ def main():
         f.write("    include_background=True,   # Include background samples\n")
         f.write("    background_ratio=0.2,      # Background ratio\n")
         f.write("    min_background_distance=48,# Minimum distance from particles for background\n")
-        f.write("    max_samples=100            # Maximum number of samples to generate\n")
+        f.write("    max_samples=200            # Maximum number of samples to generate\n")
         f.write(")\n")
         f.write("```\n\n")
         
@@ -214,12 +273,13 @@ def main():
         f.write("\n")
         f.write("# Create the dataset\n")
         f.write("dataset = SimpleCopickDataset(\n")
-        f.write("    config_path='path/to/copick/config.yaml',  # Path to copick config file\n")
-        f.write("    boxsize=(48, 48, 48),                      # Size of the subvolumes\n")
-        f.write("    augment=True,                              # Enable augmentations for training\n")
-        f.write("    cache_dir='./cache',                       # Cache directory\n")
-        f.write("    include_background=True,                   # Include background samples\n")
-        f.write("    voxel_spacing=10.0,                        # Voxel spacing\n")
+        f.write("    dataset_id=10440,                         # Dataset ID from CZ portal\n")
+        f.write("    overlay_root='/tmp/test/',                # Overlay root directory\n")
+        f.write("    boxsize=(48, 48, 48),                     # Size of the subvolumes\n")
+        f.write("    augment=True,                             # Enable augmentations for training\n")
+        f.write("    cache_dir='./cache',                      # Cache directory\n")
+        f.write("    include_background=True,                  # Include background samples\n")
+        f.write("    voxel_spacing=10.012,                     # Voxel spacing\n")
         f.write(")\n")
         f.write("\n")
         f.write("# Print dataset information\n")
