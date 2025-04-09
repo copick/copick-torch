@@ -102,7 +102,8 @@ def main():
     print("Loading dataset...")
     # Create SimpleCopickDataset (use the same dataset ID as in generate_augmentation_docs.py)
     dataset = SimpleCopickDataset(
-        copick_root=None,           # Will be created from the dataset ID
+        dataset_id=10440,           # Experimental dataset ID (same as in generate_augmentation_docs.py)
+        overlay_root="/tmp/test/",  # Overlay root directory
         boxsize=(48, 48, 48),       # Size of the subvolumes
         augment=False,              # Disable augmentations for examples
         cache_dir='./cache',        # Cache directory
