@@ -16,6 +16,7 @@ import random
 import copick
 from collections import defaultdict
 import logging
+import zarr
 
 # Import necessary classes
 from copick_torch import SimpleCopickDataset, setup_logging
@@ -108,10 +109,10 @@ def get_pickable_objects_from_dataset(dataset_id, overlay_root="/tmp/test/"):
         object_names = [obj.name for obj in pickable_objects]
         print(f"Found pickable objects: {object_names}")
         
-        return object_names
+        return object_names, copick_root
     except Exception as e:
         print(f"Error getting pickable objects: {e}")
-        return []
+        return [], None
 
 
 def verify_class_names_consistency(dataset, class_indices):
@@ -160,6 +161,157 @@ def verify_class_names_consistency(dataset, class_indices):
         
     return corrected_indices
 
+
+def extract_particle_subvolume(tomogram_array, point, voxel_spacing=10.012, cube_size=48):
+    """
+    Extract a cubic subvolume centered around a particle point.
+    
+    Args:
+        tomogram_array: Zarr array containing the tomogram data
+        point: Point coordinates (x, y, z)
+        voxel_spacing: Voxel spacing value
+        cube_size: Size of the cubic subvolume in voxels
+    
+    Returns:
+        Subvolume as numpy array
+    """
+    # Get dimensions of the tomogram
+    z_dim, y_dim, x_dim = tomogram_array.shape
+    
+    # Extract coordinates from the point (and convert to indices)
+    x_idx = int(point[0] / voxel_spacing)
+    y_idx = int(point[1] / voxel_spacing)
+    z_idx = int(point[2] / voxel_spacing)
+    
+    # Calculate subvolume bounds with boundary checking
+    half_size = cube_size // 2
+    
+    z_start = max(0, z_idx - half_size)
+    z_end = min(z_dim, z_idx + half_size)
+    
+    y_start = max(0, y_idx - half_size)
+    y_end = min(y_dim, y_idx + half_size)
+    
+    x_start = max(0, x_idx - half_size)
+    x_end = min(x_dim, x_idx + half_size)
+    
+    # Extract the subvolume
+    subvolume = tomogram_array[z_start:z_end, y_start:y_end, x_start:x_end]
+    
+    # Pad if necessary to maintain cube dimensions
+    if subvolume.shape != (cube_size, cube_size, cube_size):
+        padded = np.zeros((cube_size, cube_size, cube_size), dtype=subvolume.dtype)
+        z_pad, y_pad, x_pad = (z_end - z_start), (y_end - y_start), (x_end - x_start)
+        
+        # Calculate padding start positions
+        z_pad_start = (cube_size - z_pad) // 2
+        y_pad_start = (cube_size - y_pad) // 2
+        x_pad_start = (cube_size - x_pad) // 2
+        
+        # Insert the extracted volume into the padded volume
+        padded[
+            z_pad_start:z_pad_start+z_pad, 
+            y_pad_start:y_pad_start+y_pad, 
+            x_pad_start:x_pad_start+x_pad
+        ] = subvolume
+        
+        return padded
+    
+    return subvolume
+
+
+def generate_examples_directly_from_copick(copick_root, pickable_objects, voxel_spacing=10.012, boxsize=48):
+    """
+    Generate example subvolumes directly from the copick project for each pickable object.
+    This bypasses the SimpleCopickDataset class to ensure we have examples for all pickable objects.
+    
+    Args:
+        copick_root: Copick root object
+        pickable_objects: List of pickable object names
+        voxel_spacing: Voxel spacing to use
+        boxsize: Size of the cubic subvolume
+        
+    Returns:
+        Dictionary of class name to subvolume examples
+    """
+    examples = {}
+    
+    # Generate a background example
+    examples['background'] = np.random.randn(boxsize, boxsize, boxsize) * 0.1
+    
+    # Process each run to find examples of each pickable object
+    for run in copick_root.runs:
+        print(f"Looking for examples in run: {run.name}")
+        
+        # Get tomogram
+        try:
+            voxel_spacing_obj = run.get_voxel_spacing(voxel_spacing)
+            if not voxel_spacing_obj or not voxel_spacing_obj.tomograms:
+                print(f"  No tomograms found for this voxel spacing")
+                continue
+                
+            tomogram = [t for t in voxel_spacing_obj.tomograms if 'wbp-denoised' in t.tomo_type]
+            if not tomogram:
+                tomogram = voxel_spacing_obj.tomograms[0]
+            else:
+                tomogram = tomogram[0]
+                
+            # Open zarr array
+            tomogram_array = zarr.open(tomogram.zarr())["0"]
+            print(f"  Loaded tomogram with shape {tomogram_array.shape}")
+            
+            # Process picks for each object type
+            for picks in run.get_picks():
+                if not picks.from_tool:
+                    continue
+                    
+                object_name = picks.pickable_object_name
+                
+                # Skip if we already have an example for this object
+                if object_name in examples:
+                    continue
+                    
+                if object_name not in pickable_objects:
+                    print(f"  Skipping {object_name} - not in pickable objects list")
+                    continue
+                    
+                try:
+                    points, _ = picks.numpy()
+                    if len(points) == 0:
+                        print(f"  No points found for {object_name}")
+                        continue
+                        
+                    print(f"  Found {len(points)} points for {object_name}")
+                    
+                    # Extract subvolume for a random point
+                    point = points[random.randrange(len(points))]
+                    subvolume = extract_particle_subvolume(
+                        tomogram_array, point, voxel_spacing=voxel_spacing, cube_size=boxsize
+                    )
+                    
+                    # Store the example
+                    examples[object_name] = subvolume
+                    print(f"  Added example for {object_name} with shape {subvolume.shape}")
+                    
+                except Exception as e:
+                    print(f"  Error processing {object_name}: {e}")
+        
+        except Exception as e:
+            print(f"Error processing run {run.name}: {e}")
+    
+    # Print summary of found examples
+    print("\nExamples found:")
+    for class_name in examples:
+        print(f"  - {class_name}")
+        
+    # Print missing examples
+    missing = set(pickable_objects) - set(examples.keys())
+    if missing:
+        print(f"\nMissing examples for: {missing}")
+    
+    return examples
+
+
 def main():
     """Main function to generate the documentation."""
     # Set up logging
@@ -178,7 +330,7 @@ def main():
     # Get pickable objects directly from the dataset first
     dataset_id = 10440  # Experimental dataset ID (same as in generate_augmentation_docs.py)
     overlay_root = "/tmp/test/"
-    pickable_objects = get_pickable_objects_from_dataset(dataset_id, overlay_root)
+    pickable_objects, copick_root = get_pickable_objects_from_dataset(dataset_id, overlay_root)
 
     print("Loading dataset...")
     # Create SimpleCopickDataset
@@ -200,72 +352,51 @@ def main():
     print(f"Dataset size: {len(dataset)}")
     print(f"Classes: {dataset.keys()}")
     
+    # Debug information: Print the keys
+    print("\nClass keys:")
+    for i, key in enumerate(dataset.keys()):
+        print(f"  Index {i}: {key}")
+    
     # Show class distribution
     distribution = dataset.get_class_distribution()
     print("\nClass Distribution:")
     for class_name, count in distribution.items():
         print(f"  {class_name}: {count} samples")
 
-    # Double check if keys match expected classes
-    if not dataset.keys():
-        print("WARNING: No class keys found in dataset. Using pickable object names instead.")
-        dataset._keys = pickable_objects
+    # Fix the _keys of the dataset if needed
+    # This only happens if the keys don't match the expected pickable objects
+    if set(dataset.keys()) != set(pickable_objects + ["background"]):
+        print("\nWARNING: Dataset keys don't match pickable objects. Overriding keys.")
+        # Save original keys for reference
+        original_keys = list(dataset.keys())
+        print(f"Original keys: {original_keys}")
+        
+        # Create a map from original indices to correct class names
+        # This is for logging only - we'll generate examples directly
+        label_map = {}
+        for i, key in enumerate(original_keys):
+            # Try to map to the correct pickable object based on name similarity
+            best_match = None
+            for obj in pickable_objects:
+                if obj.lower() in key.lower() or key.lower() in obj.lower():
+                    best_match = obj
+                    break
+            
+            label_map[i] = best_match or key
+        
+        # Print the mapping information
+        print("\nLabel mapping:")
+        for i, mapped_name in label_map.items():
+            print(f"  Original label {i} ({original_keys[i]}) -> {mapped_name}")
 
-    # Collect one example from each class
-    class_examples = {}
-    class_indices = defaultdict(list)
-    
-    # First pass: collect indices by class
-    print("Collecting indices by class...")
-    for i in range(len(dataset)):
-        volume, label = dataset[i]
-        if label == -1:
-            class_name = "background"
-        else:
-            try:
-                # Make sure we're within bounds
-                if label < len(dataset.keys()):
-                    class_name = dataset.keys()[label]
-                else:
-                    print(f"WARNING: Label {label} is out of bounds for dataset keys. Skipping.")
-                    continue
-            except Exception as e:
-                print(f"Error getting class name for label {label}: {e}")
-                continue
-                
-        # For debugging: print class name and label to verify consistency
-        print(f"Sample {i}: label={label}, class_name={class_name}")
-                
-        class_indices[class_name].append(i)
-    
-    print(f"Found examples for these classes: {list(class_indices.keys())}")
-    
-    # If we're missing any expected classes, print a warning
-    expected_classes = set(pickable_objects + ["background"] if dataset.include_background else pickable_objects)
-    found_classes = set(class_indices.keys())
-    missing_classes = expected_classes - found_classes
-    if missing_classes:
-        print(f"WARNING: Could not find examples for these expected classes: {missing_classes}")
-    
-    # Second pass: get one example from each class
-    for class_name, indices in class_indices.items():
-        if indices:
-            # Choose a random index from this class
-            idx = random.choice(indices)
-            volume, label = dataset[idx]
-            # Verify the label matches the class name to ensure consistency
-            if label == -1:
-                expected_name = "background"
-            else:
-                expected_name = dataset.keys()[label] if label < len(dataset.keys()) else None
-                
-            if expected_name != class_name:
-                print(f"WARNING: Class name mismatch for index {idx}. Expected {expected_name}, got {class_name}")
-                # Use the expected name from the label to ensure consistency
-                if expected_name is not None:
-                    class_name = expected_name
-                    
-            class_examples[class_name] = volume
+    # Generate examples directly from copick project to ensure we have examples of all classes
+    print("\nGenerating examples directly from Copick project...")
+    class_examples = generate_examples_directly_from_copick(
+        copick_root, 
+        pickable_objects, 
+        voxel_spacing=10.012,
+        boxsize=48
+    )
     
     # Begin writing markdown
     with open(md_file, 'w') as f:
@@ -372,6 +503,7 @@ def main():
         f.write("```\n")
     
     print(f"Documentation generated successfully. Markdown file saved to {md_file}")
+
 
 if __name__ == "__main__":
     main()
