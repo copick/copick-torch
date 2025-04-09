@@ -4,6 +4,51 @@
 
 Torch utilities for [copick](https://github.com/copick/copick)
 
+## Dataset classes
+
+- `SimpleCopickDataset`: Main dataset class with caching and augmentation support
+- `MinimalCopickDataset`: Simpler dataset implementation that loads data on-the-fly, without caching or augmentation
+
+### MinimalCopickDataset Usage
+
+```python
+from copick_torch import MinimalCopickDataset
+from torch.utils.data import DataLoader
+
+# Create a minimal dataset - no caching, no augmentation
+dataset = MinimalCopickDataset(
+    dataset_id=10440,                 # Dataset ID from CZ portal
+    overlay_root='/tmp/test/',        # Overlay root directory
+    boxsize=(48, 48, 48),             # Size of the subvolumes
+    voxel_spacing=10.012,             # Voxel spacing
+    include_background=True,          # Include background samples
+    background_ratio=0.2,             # Background ratio
+    min_background_distance=48,       # Minimum distance from particles for background
+    max_samples=None                  # No limit on samples
+)
+
+# Print dataset information
+print(f"Dataset size: {len(dataset)}")
+print(f"Classes: {dataset.keys()}")
+print(f"Class distribution: {dataset.get_class_distribution()}")
+
+# Create a DataLoader
+dataloader = DataLoader(
+    dataset,
+    batch_size=8,
+    shuffle=True,
+    num_workers=4,
+    pin_memory=True
+)
+
+# Training loop
+for volume, label in dataloader:
+    # volume shape: [batch_size, 1, depth, height, width]
+    # label: [batch_size] class indices
+    # Your training code here
+    pass
+```
+
 ## Quick demo
 
 ```bash
@@ -24,6 +69,9 @@ uv run examples/spliced_mixup_fourier_example.py
 
 # Generate augmentation documentation
 python scripts/generate_augmentation_docs.py
+
+# Generate dataset documentation (both SimpleCopickDataset and MinimalCopickDataset)
+python scripts/generate_simple_dataset_docs.py
 ```
 
 ## Features
@@ -57,6 +105,8 @@ augmented_volume = fourier_aug(volume_tensor)
 See the [docs directory](./docs) for documentation and examples:
 
 - [Augmentation Examples](./docs/augmentation_examples): Visualizations of various augmentations applied to different classes from the dataset used in the `spliced_mixup_example.py` example.
+- [Simple Dataset Examples](./docs/simple_dataset_examples): Examples of volumes from each class in the dataset used by the `SimpleCopickDataset` class.
+- [Minimal Dataset Examples](./docs/minimal_dataset_examples): Examples of volumes from each class in the dataset used by the `MinimalCopickDataset` class.
 
 ## Citation
 
