@@ -17,7 +17,7 @@ dependencies = [
     "scikit-image",
     "scipy",
     "mrcfile",
-    "copick<=1.0.1",
+    "copick>=1.0.1",
     "numcodecs<0.16.0",
     "pandas>=2.2.3",
     "matplotlib>=3.10.1",
@@ -25,6 +25,8 @@ dependencies = [
     "pytest>=8.3.5",
     "scikit-learn>=1.6.1",
     "torchvision>=0.21.0",
+    "ipykernel>=6.29.5",
+    "jupyter>=1.1.1",
 ]
 
 [project.optional-dependencies]
