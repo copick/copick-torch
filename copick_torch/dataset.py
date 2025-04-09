@@ -80,7 +80,9 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
         background_ratio: float = 0.2,
         min_background_distance: Optional[float] = None,
         patch_strategy: str = "centered",
-        debug_mode: bool = False
+        debug_mode: bool = False,
+        dataset_id: Optional[int] = None,
+        overlay_root: str = "/tmp/test/"
     ):
         """
         Initialize a SimpleCopickDataset.
@@ -101,12 +103,24 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
             patch_strategy: Strategy for extracting patches ('centered', 'random', or 'jittered')
             debug_mode: Whether to enable debug mode
         """
-        # Validate input: either config_path or copick_root must be provided
-        if config_path is None and copick_root is None:
-            raise ValueError("Either config_path or copick_root must be provided")
+        # Validate input: either config_path, copick_root, or dataset_id must be provided
+        if config_path is None and copick_root is None and dataset_id is None:
+            raise ValueError("Either config_path, copick_root, or dataset_id must be provided")
             
         self.config_path = config_path
         self.copick_root = copick_root
+        self.dataset_id = dataset_id
+        self.overlay_root = overlay_root
+        
+        # If dataset_id is provided but not copick_root, create it here
+        if self.dataset_id is not None and self.copick_root is None:
+            try:
+                import copick
+                self.copick_root = copick.from_czcdp_datasets([self.dataset_id], overlay_root=self.overlay_root)
+                print(f"Created copick root from dataset ID: {self.dataset_id}")
+            except Exception as e:
+                print(f"Error creating copick root from dataset ID: {e}")
+                raise
         self.boxsize = boxsize
         self.augment = augment
         self.cache_dir = cache_dir
