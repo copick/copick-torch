@@ -113,6 +113,53 @@ def get_pickable_objects_from_dataset(dataset_id, overlay_root="/tmp/test/"):
         print(f"Error getting pickable objects: {e}")
         return []
 
+
+def verify_class_names_consistency(dataset, class_indices):
+    """
+    Verify that the class names in the dataset are consistent with the label indices.
+    
+    Args:
+        dataset: The SimpleCopickDataset instance
+        class_indices: Dictionary mapping class names to sample indices
+        
+    Returns:
+        Dictionary mapping correct class names to sample indices
+    """
+    print("\nVerifying class name consistency...")
+    corrected_indices = defaultdict(list)
+    
+    # Get the expected mapping from label to class name
+    keys = dataset.keys()
+    label_to_name = {}
+    for i, key in enumerate(keys):
+        label_to_name[i] = key
+    label_to_name[-1] = "background"
+    
+    # Print the expected mapping
+    print(f"Expected label to class name mapping: {label_to_name}")
+    
+    # Check each class name and its samples
+    for class_name, indices in class_indices.items():
+        for idx in indices:
+            _, label = dataset[idx]
+            expected_name = label_to_name.get(label)
+            
+            if expected_name != class_name:
+                print(f"Inconsistency found: Index {idx} has label {label}, "
+                      f"expected class '{expected_name}', got '{class_name}'")
+                # Add to the corrected mapping using the expected name
+                corrected_indices[expected_name].append(idx)
+            else:
+                # Keep the correct mapping
+                corrected_indices[class_name].append(idx)
+    
+    # Print summary of corrected indices
+    print("\nCorrected class indices:")
+    for class_name, indices in corrected_indices.items():
+        print(f"  {class_name}: {len(indices)} samples")
+        
+    return corrected_indices
+
 def main():
     """Main function to generate the documentation."""
     # Set up logging
@@ -186,6 +233,9 @@ def main():
                 print(f"Error getting class name for label {label}: {e}")
                 continue
                 
+        # For debugging: print class name and label to verify consistency
+        print(f"Sample {i}: label={label}, class_name={class_name}")
+                
         class_indices[class_name].append(i)
     
     print(f"Found examples for these classes: {list(class_indices.keys())}")
@@ -202,7 +252,19 @@ def main():
         if indices:
             # Choose a random index from this class
             idx = random.choice(indices)
-            volume, _ = dataset[idx]
+            volume, label = dataset[idx]
+            # Verify the label matches the class name to ensure consistency
+            if label == -1:
+                expected_name = "background"
+            else:
+                expected_name = dataset.keys()[label] if label < len(dataset.keys()) else None
+                
+            if expected_name != class_name:
+                print(f"WARNING: Class name mismatch for index {idx}. Expected {expected_name}, got {class_name}")
+                # Use the expected name from the label to ensure consistency
+                if expected_name is not None:
+                    class_name = expected_name
+                    
             class_examples[class_name] = volume
     
     # Begin writing markdown
@@ -215,7 +277,7 @@ def main():
         for class_name, volume in class_examples.items():
             print(f"Processing class: {class_name}")
             
-            # Create filename
+            # Create filename - ensure it exactly matches the class name
             filename = f"{class_name.lower().replace(' ', '_').replace('-', '_')}.png"
             filepath = output_dir / filename
             
@@ -236,6 +298,7 @@ def main():
             
             # Add to markdown
             f.write(f"## Class: {class_name}\n\n")
+            # Ensure the image reference uses the same name format as the filename
             f.write(f"![{class_name}](./{filename})\n\n")
         
         # Add information about the dataset
