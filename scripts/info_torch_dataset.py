@@ -198,7 +198,14 @@ def main():
         
         # Load the dataset
         logger.info(f"Loading dataset from {args.input_dir}...")
-        dataset = MinimalCopickDataset.load(args.input_dir)
+        if args.workers is not None:
+            logger.info(f"Using {args.workers} worker processes for parallel loading")
+        else:
+            import multiprocessing
+            logger.info(f"Using automatic worker count: {max(1, multiprocessing.cpu_count() - 1)} processes")
+        logger.info(f"Processing in batches of {args.batch_size}")
+        
+        dataset = MinimalCopickDataset.load(args.input_dir, num_workers=args.workers, batch_size=args.batch_size)
         logger.info(f"Dataset loaded with {len(dataset)} samples")
         
         # Get a sample to check dimensions
