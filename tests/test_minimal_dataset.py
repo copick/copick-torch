@@ -28,13 +28,17 @@ class TestMinimalCopickDataset(unittest.TestCase):
         # Configure mocks
         mock_from_czcdp.return_value = mock_copick_root
         mock_copick_root.runs = [mock_run]
-        mock_copick_root.pickable_objects = [
-            MagicMock(name="object1"),
-            MagicMock(name="object2")
-        ]
         
-        for po in mock_copick_root.pickable_objects:
-            po.name = po.name
+        # Create pickable objects with proper name and label attributes
+        obj1 = MagicMock()
+        obj1.name = "object1"
+        obj1.label = 0
+        
+        obj2 = MagicMock()
+        obj2.name = "object2" 
+        obj2.label = 1
+        
+        mock_copick_root.pickable_objects = [obj1, obj2]
             
         mock_run.name = "test_run"
         mock_run.get_voxel_spacing.return_value = mock_vs
@@ -126,14 +130,21 @@ class TestMinimalCopickDataset(unittest.TestCase):
         # Configure mocks
         mock_from_czcdp.return_value = mock_copick_root
         mock_copick_root.runs = [mock_run]
-        mock_copick_root.pickable_objects = [
-            MagicMock(name="object1"),
-            MagicMock(name="object2"),
-            MagicMock(name="object3")
-        ]
         
-        for po in mock_copick_root.pickable_objects:
-            po.name = po.name
+        # Create pickable objects with proper name and label attributes
+        obj1 = MagicMock()
+        obj1.name = "object1"
+        obj1.label = 0
+        
+        obj2 = MagicMock()
+        obj2.name = "object2" 
+        obj2.label = 1
+        
+        obj3 = MagicMock()
+        obj3.name = "object3"
+        obj3.label = 2
+        
+        mock_copick_root.pickable_objects = [obj1, obj2, obj3]
             
         mock_run.name = "test_run"
         mock_run.get_voxel_spacing.return_value = mock_vs
@@ -169,19 +180,22 @@ class TestMinimalCopickDataset(unittest.TestCase):
         # Check length - should be exactly 3 points (one per object)
         self.assertEqual(len(dataset), 3)
         
-        # Verify class names and indices
+        # Verify class names 
         class_names = dataset.keys()
         self.assertEqual(len(class_names), 3)
+        self.assertEqual(set(class_names), {"object1", "object2", "object3"})
         
-        # For each sample, verify the label matches the expected class
+        # For each sample, verify the label
+        labels_found = set()
         for i in range(len(dataset)):
             _, label = dataset[i]
-            # The label should be a valid index in the class_names list
-            self.assertTrue(0 <= label < len(class_names))
-            # Get the class name from the label
-            class_name = class_names[label]
-            # Make sure it's one of our expected class names
-            self.assertIn(class_name, ["object1", "object2", "object3"])
+            labels_found.add(label)
+            
+            # Check that label corresponds to one of our objects
+            self.assertIn(label, [0, 1, 2])
+            
+        # Make sure all labels were found
+        self.assertEqual(labels_found, {0, 1, 2})
             
         # Test that the class distribution is correct
         distribution = dataset.get_class_distribution()
