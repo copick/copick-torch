@@ -36,9 +36,9 @@ class MinimalCopickDataset(Dataset):
         overlay_root=None,
         boxsize=(48, 48, 48),
         voxel_spacing=10.012,
-        include_background=False,
+        include_background=True,
         background_ratio=0.2,
-        min_background_distance=None,
+        min_background_distance=48,
         preload=True
     ):
         """
