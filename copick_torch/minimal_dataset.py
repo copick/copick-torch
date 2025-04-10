@@ -590,13 +590,15 @@ class MinimalCopickDataset(Dataset):
         logger.info(f"Dataset saved to {save_dir}")
     
     @classmethod
-    def load(cls, save_dir, proj=None):
+    def load(cls, save_dir, proj=None, num_workers=None, batch_size=32):
         """
         Load a previously saved dataset.
         
         Args:
             save_dir: Directory where the dataset was saved
             proj: Optional copick project object. If provided, tomograms will be loaded from it.
+            num_workers: Number of worker processes to use for parallel loading (default: number of CPU cores - 1)
+            batch_size: Batch size for parallel loading (default: 32)
             
         Returns:
             Loaded MinimalCopickDataset instance
