@@ -82,6 +82,37 @@ Options:
   --verbose                 Enable verbose output
 ```
 
+#### Inspecting saved datasets
+
+You can display detailed information about a saved dataset using the provided utility script:
+
+```bash
+python scripts/info_torch_dataset.py --input_dir /path/to/saved/dataset
+```
+
+This will display:
+- Basic dataset metadata (dataset ID, box size, voxel spacing, etc.)
+- Class mapping information
+- Total number of samples
+- Class distribution (counts and percentages)
+- Tomogram information
+- Sample volume shape
+
+The script can also generate visualizations:
+
+```bash
+python scripts/info_torch_dataset.py --input_dir /path/to/dataset --output_pdf dataset_report.pdf --samples_per_class 5
+```
+
+Options:
+```
+  --input_dir INPUT_DIR     Directory where the dataset is saved
+  --output_pdf OUTPUT_PDF   Path to save visualization PDF (default: input_dir/dataset_overview.pdf)
+  --samples_per_class SAMPLES_PER_CLASS
+                            Number of sample visualizations per class (default: 3)
+  --verbose                 Enable verbose output
+```
+
 ## Quick demo
 
 ```bash
@@ -108,6 +139,9 @@ python scripts/generate_dataset_examples.py
 
 # Save dataset to disk for later use
 python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save
+
+# Display information about a saved dataset
+python scripts/info_torch_dataset.py --input_dir /path/to/save
 ```
 
 ## Features
