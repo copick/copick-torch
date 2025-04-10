@@ -207,6 +207,46 @@ Options:
   --verbose                 Enable verbose output
 ```
 
+## Parallel Processing
+
+The MinimalCopickDataset supports parallel processing for faster loading and saving of large datasets. When preloading is enabled, the extraction and processing of subvolumes can be parallelized across multiple CPU cores.
+
+### Command Line Usage
+
+To use parallel processing when saving a dataset:
+
+```bash
+python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save --workers 8 --batch_size 64
+```
+
+To use parallel processing when loading and visualizing a dataset:
+
+```bash
+python scripts/info_torch_dataset.py --input_dir /path/to/saved/dataset --workers 8 --batch_size 64
+```
+
+### Python API Usage
+
+```python
+from copick_torch import MinimalCopickDataset
+
+# Create a dataset with parallel processing
+dataset = MinimalCopickDataset(
+    dataset_id=10440,
+    overlay_root='/tmp/copick_overlay',
+    preload=True,
+    num_workers=8,        # Number of parallel processes
+    batch_size=64         # Batch size for processing
+)
+
+# Load a saved dataset with parallel processing
+loaded_dataset = MinimalCopickDataset.load(
+    '/path/to/saved/dataset',
+    num_workers=8,
+    batch_size=64
+)
+```
+
 ## Features
 
 ### Augmentations
