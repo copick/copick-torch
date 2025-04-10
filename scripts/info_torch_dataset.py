@@ -37,6 +37,10 @@ def parse_args():
                         help='Path to save visualization PDF (default: input_dir/dataset_overview.pdf)')
     parser.add_argument('--samples_per_class', type=int, default=3,
                         help='Number of sample visualizations per class (default: 3)')
+    parser.add_argument('--workers', type=int, default=None,
+                        help='Number of worker processes for parallel loading (default: CPU count - 1)')
+    parser.add_argument('--batch_size', type=int, default=32,
+                        help='Batch size for parallel loading (default: 32)')
     parser.add_argument('--verbose', action='store_true',
                         help='Enable verbose output')
     
