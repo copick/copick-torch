@@ -694,8 +694,8 @@ class MinimalCopickDataset(Dataset):
             
             # If preload is True and we have tomogram data, preload the subvolumes
             if dataset.preload and dataset._tomogram_data and all(t is not None for t in dataset._tomogram_data):
-                logger.info("Preloading subvolumes...")
-                dataset._preload_data()
+                logger.info("Preloading subvolumes using parallel processing...")
+                dataset._preload_data(num_workers=num_workers, batch_size=batch_size)
         
         # Print class distribution
         dataset._print_class_distribution()
