@@ -94,6 +94,12 @@ def main():
         logger.info("Creating MinimalCopickDataset...")
         if args.preload:
             logger.info("With preloading (this saves all subvolumes as tensor data)")
+            if args.workers is not None:
+                logger.info(f"Using {args.workers} worker processes for parallel loading")
+            else:
+                import multiprocessing
+                logger.info(f"Using automatic worker count: {max(1, multiprocessing.cpu_count() - 1)} processes")
+            logger.info(f"Processing in batches of {args.batch_size}")
         else:
             logger.info("Without preloading (this saves only metadata and coordinates)")
             
@@ -106,6 +112,13 @@ def main():
             min_background_distance=args.min_background_distance,
             preload=args.preload
         )
+        
+        # Apply parallel processing parameters if preloading
+        if args.preload and hasattr(dataset, '_preload_data'):
+            # If we haven't preloaded yet (shouldn't happen normally, but just in case)
+            if not hasattr(dataset, '_subvolumes') or not dataset._subvolumes:
+                logger.info("Manually triggering parallel preloading...")
+                dataset._preload_data(num_workers=args.workers, batch_size=args.batch_size)
         
         # Save the dataset
         logger.info(f"Saving dataset to {args.output_dir}...")
