@@ -210,9 +210,46 @@ class MinimalCopickDataset(Dataset):
             logger.error(f"Error loading data: {e}")
             raise
 
-    def _preload_data(self):
-        """Preload all subvolumes into memory."""
-        logger.info(f"Preloading {len(self._points)} subvolumes into memory...")
+    def _preload_data(self, num_workers=None, batch_size=32):
+        """
+        Preload all subvolumes into memory using parallel processing.
+        
+        Args:
+            num_workers: Number of worker processes to use (default: number of CPU cores minus 1)
+            batch_size: Size of batches to process at once (default: 32)
+        """
+        logger.info(f"Preloading {len(self._points)} subvolumes into memory using parallel processing...")
+        
+        # Initialize storage for preloaded data
+        self._subvolumes = []
+        
+        # Use parallel processing for preloading
+        try:
+            # Process subvolumes in parallel
+            self._subvolumes = parallel_preload_data(
+                self._points, 
+                self._labels, 
+                self._tomogram_indices if hasattr(self, '_tomogram_indices') else [0] * len(self._points), 
+                self._tomogram_data,
+                self.boxsize,
+                self.voxel_spacing,
+                num_workers=num_workers,
+                batch_size=batch_size
+            )
+            
+            logger.info(f"Preloaded {len(self._subvolumes)} subvolumes using parallel processing")
+            
+        except Exception as e:
+            logger.warning(f"Parallel processing failed with error: {e}. Falling back to sequential processing.")
+            # Fall back to sequential processing if parallel processing fails
+            self._preload_data_sequential()
+    
+    def _preload_data_sequential(self):
+        """
+        Preload all subvolumes into memory using sequential processing.
+        This is a fallback method if parallel processing fails.
+        """
+        logger.info(f"Preloading {len(self._points)} subvolumes into memory using sequential processing...")
         
         # Initialize storage for preloaded data
         self._subvolumes = []
@@ -236,7 +273,7 @@ class MinimalCopickDataset(Dataset):
             # Store the tensor with its label
             self._subvolumes.append((subvolume_tensor, label))
         
-        logger.info(f"Preloaded {len(self._subvolumes)} subvolumes")
+        logger.info(f"Preloaded {len(self._subvolumes)} subvolumes using sequential processing")
             
     def _print_class_distribution(self):
         """Print the distribution of classes in the dataset."""
