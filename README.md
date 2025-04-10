@@ -7,7 +7,7 @@ Torch utilities for [copick](https://github.com/copick/copick)
 ## Dataset classes
 
 - `SimpleCopickDataset`: Main dataset class with caching and augmentation support
-- `MinimalCopickDataset`: Simpler dataset implementation that loads data on-the-fly, without caching or augmentation
+- `MinimalCopickDataset`: Simpler dataset implementation with optional preloading
 
 ### MinimalCopickDataset Usage
 
@@ -53,20 +53,33 @@ for volume, label in dataloader:
 
 #### Saving and loading datasets
 
-The `MinimalCopickDataset` can be saved to disk and loaded later:
+The `MinimalCopickDataset` supports preloading all subvolumes into memory and saving the actual tensor data to disk, making it easy to share and load datasets without needing access to the original tomogram data:
 
 ```python
-# Save a dataset to disk
+from copick_torch import MinimalCopickDataset
+
+# Create a dataset with preloading enabled (default)
+dataset = MinimalCopickDataset(
+    dataset_id=10440,
+    overlay_root='/tmp/copick_overlay',
+    preload=True  # This preloads all subvolumes into memory
+)
+
+# Save the dataset with preloaded tensors
 dataset.save('/path/to/save')
 
-# Load a dataset from disk
+# Load the dataset from the saved tensors (no need for original tomogram data)
 loaded_dataset = MinimalCopickDataset.load('/path/to/save')
 ```
 
 You can also use the provided utility script to save a dataset directly from the command line:
 
 ```bash
+# Save with preloading (default)
 python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save
+
+# Save without preloading (not recommended)
+python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save --no-preload
 ```
 
 Options:
@@ -79,6 +92,7 @@ Options:
   --voxel_spacing SPACING   Voxel spacing to use (default: 10.012)
   --include_background      Include background samples in the dataset
   --background_ratio RATIO  Ratio of background to particle samples (default: 0.2)
+  --no-preload              Disable preloading tensors (not recommended)
   --verbose                 Enable verbose output
 ```
 
@@ -137,7 +151,7 @@ python scripts/generate_augmentation_docs.py
 # Generate dataset documentation
 python scripts/generate_dataset_examples.py
 
-# Save dataset to disk for later use
+# Save dataset to disk with preloaded tensors
 python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save
 
 # Display information about a saved dataset

@@ -82,6 +82,16 @@ def main():
         logger.error(f"Metadata file not found: {metadata_path}")
         return 1
     
+    # Check if we have preloaded tensors
+    subvolumes_path = os.path.join(args.input_dir, 'subvolumes.pt')
+    labels_path = os.path.join(args.input_dir, 'labels.pt')
+    
+    has_preloaded_tensors = os.path.exists(subvolumes_path) and os.path.exists(labels_path)
+    if has_preloaded_tensors:
+        logger.info("Detected preloaded tensor data.")
+    else:
+        logger.warning("No preloaded tensor data found. Dataset was saved without preloading.")
+    
     try:
         # Load metadata file to display basic information
         with open(metadata_path, 'r') as f:
@@ -94,6 +104,7 @@ def main():
         logger.info(f"  Include background: {metadata.get('include_background')}")
         logger.info(f"  Background ratio: {metadata.get('background_ratio')}")
         logger.info(f"  Min background distance: {metadata.get('min_background_distance')}")
+        logger.info(f"  Preload: {metadata.get('preload', False)}")
         
         # Display class mapping
         name_to_label = metadata.get('name_to_label', {})
@@ -101,40 +112,76 @@ def main():
         for name, label in name_to_label.items():
             logger.info(f"  {name}: {label}")
         
-        # Load sample information to get dataset size
-        samples_path = os.path.join(args.input_dir, 'samples.json')
-        if os.path.isfile(samples_path):
-            with open(samples_path, 'r') as f:
-                samples = json.load(f)
-            logger.info(f"Total samples: {len(samples)}")
+        # Calculate class distribution
+        class_counts = {}
+        
+        # If we have preloaded tensors, analyze them
+        if has_preloaded_tensors:
+            logger.info("Analyzing preloaded tensors...")
             
-            # Calculate class distribution
-            class_counts = {}
-            for sample in samples:
-                label = sample['label']
+            # Load the labels tensor to get class distribution
+            labels = torch.load(labels_path)
+            
+            for label in labels:
+                label_val = label.item()
                 
                 # Handle background label
-                if label == -1:
+                if label_val == -1:
                     class_name = "background"
                 else:
                     # Find class name for this label
                     class_name = None
                     for name, idx in name_to_label.items():
-                        if idx == label:
+                        if idx == label_val:
                             class_name = name
                             break
                     
                     if class_name is None:
-                        class_name = f"Unknown_Label_{label}"
+                        class_name = f"Unknown_Label_{label_val}"
                 
                 if class_name not in class_counts:
                     class_counts[class_name] = 0
                 class_counts[class_name] += 1
-            
-            logger.info("Class distribution:")
-            for class_name, count in class_counts.items():
-                percentage = 100 * count / len(samples)
-                logger.info(f"  {class_name}: {count} samples ({percentage:.2f}%)")
+                
+            logger.info(f"Tensor data shape: {torch.load(subvolumes_path).shape}")
+        else:
+            # Otherwise, load sample information
+            samples_path = os.path.join(args.input_dir, 'samples.json')
+            if os.path.isfile(samples_path):
+                with open(samples_path, 'r') as f:
+                    samples = json.load(f)
+                
+                logger.info(f"Analyzing sample information...")
+                
+                # Calculate class distribution from sample data
+                for sample in samples:
+                    label = sample['label']
+                    
+                    # Handle background label
+                    if label == -1:
+                        class_name = "background"
+                    else:
+                        # Find class name for this label
+                        class_name = None
+                        for name, idx in name_to_label.items():
+                            if idx == label:
+                                class_name = name
+                                break
+                        
+                        if class_name is None:
+                            class_name = f"Unknown_Label_{label}"
+                    
+                    if class_name not in class_counts:
+                        class_counts[class_name] = 0
+                    class_counts[class_name] += 1
+        
+        # Display class distribution
+        total_samples = sum(class_counts.values())
+        logger.info(f"Total samples: {total_samples}")
+        logger.info("Class distribution:")
+        for class_name, count in class_counts.items():
+            percentage = 100 * count / total_samples
+            logger.info(f"  {class_name}: {count} samples ({percentage:.2f}%)")
         
         # Load tomogram information
         tomogram_path = os.path.join(args.input_dir, 'tomogram_info.json')
