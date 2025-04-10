@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 from collections import Counter
 import logging
 from types import SimpleNamespace
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,8 @@ class MinimalCopickDataset(Dataset):
         voxel_spacing=10.012,
         include_background=False,
         background_ratio=0.2,
-        min_background_distance=None
+        min_background_distance=None,
+        preload=True
     ):
         """
         Initialize a MinimalCopickDataset.
@@ -51,6 +53,7 @@ class MinimalCopickDataset(Dataset):
             include_background: Whether to include background samples
             background_ratio: Ratio of background to particle samples
             min_background_distance: Minimum distance from particles for background samples
+            preload: Whether to preload all subvolumes into memory (faster but more memory intensive)
         """
         self.dataset_id = dataset_id
         self.overlay_root = overlay_root
@@ -59,6 +62,7 @@ class MinimalCopickDataset(Dataset):
         self.include_background = include_background
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
+        self.preload = preload
         
         # Initialize data structures
         self._points = []  # List of (x, y, z) coordinates
@@ -66,6 +70,9 @@ class MinimalCopickDataset(Dataset):
         self._is_background = []  # List of booleans indicating if a sample is background
         self._tomogram_data = []  # List of tomogram zarr arrays
         self._name_to_label = {}  # Mapping from object names to labels
+        
+        # Storage for preloaded data
+        self._subvolumes = None
         
         # Set copick project
         self.copick_root = proj
@@ -194,9 +201,41 @@ class MinimalCopickDataset(Dataset):
             # Print class distribution
             self._print_class_distribution()
             
+            # Preload all subvolumes if requested
+            if self.preload and len(self._points) > 0:
+                self._preload_data()
+            
         except Exception as e:
             logger.error(f"Error loading data: {e}")
             raise
+
+    def _preload_data(self):
+        """Preload all subvolumes into memory."""
+        logger.info(f"Preloading {len(self._points)} subvolumes into memory...")
+        
+        # Initialize storage for preloaded data
+        self._subvolumes = []
+        
+        # Extract and store all subvolumes
+        for idx in tqdm(range(len(self._points))):
+            point = self._points[idx]
+            label = self._labels[idx]
+            tomogram_idx = self._tomogram_indices[idx] if hasattr(self, '_tomogram_indices') else 0
+            
+            # Extract the subvolume
+            subvolume = self.extract_subvolume(point, tomogram_idx)
+            
+            # Normalize
+            if np.std(subvolume) > 0:
+                subvolume = (subvolume - np.mean(subvolume)) / np.std(subvolume)
+                
+            # Add channel dimension and convert to tensor
+            subvolume_tensor = torch.as_tensor(subvolume[None, ...], dtype=torch.float32)
+            
+            # Store the tensor with its label
+            self._subvolumes.append((subvolume_tensor, label))
+        
+        logger.info(f"Preloaded {len(self._subvolumes)} subvolumes")
             
     def _print_class_distribution(self):
         """Print the distribution of classes in the dataset."""
@@ -360,6 +399,11 @@ class MinimalCopickDataset(Dataset):
         Returns:
             Tuple of (subvolume, label)
         """
+        # If data is preloaded, return from preloaded data
+        if self.preload and hasattr(self, '_subvolumes') and self._subvolumes:
+            return self._subvolumes[idx]
+            
+        # Otherwise, extract on-the-fly
         # Get the point, label, and tomogram index
         point = self._points[idx]
         label = self._labels[idx]
@@ -437,31 +481,56 @@ class MinimalCopickDataset(Dataset):
             'include_background': self.include_background,
             'background_ratio': self.background_ratio,
             'min_background_distance': self.min_background_distance,
-            'name_to_label': self._name_to_label
+            'name_to_label': self._name_to_label,
+            'preload': self.preload
         }
         
         with open(os.path.join(save_dir, 'metadata.json'), 'w') as f:
             json.dump(metadata, f)
         
-        # Save sample information
-        sample_data = []
-        for i in range(len(self._points)):
-            point = self._points[i]
-            label = self._labels[i]
-            is_background = self._is_background[i]
-            tomogram_idx = self._tomogram_indices[i] if hasattr(self, '_tomogram_indices') else 0
+        # If preloaded, save the actual tensors
+        if self.preload and hasattr(self, '_subvolumes') and self._subvolumes:
+            logger.info("Saving preloaded tensors...")
             
-            sample_data.append({
-                'point': point.tolist() if isinstance(point, np.ndarray) else point,
-                'label': int(label),
-                'is_background': bool(is_background),
-                'tomogram_idx': int(tomogram_idx)
-            })
+            # Extract tensors and labels
+            subvolumes = []
+            labels = []
+            
+            for volume, label in self._subvolumes:
+                subvolumes.append(volume)
+                labels.append(label)
+            
+            # Stack tensors into a single tensor
+            subvolumes_tensor = torch.stack(subvolumes)
+            labels_tensor = torch.tensor(labels)
+            
+            # Save tensors to disk
+            torch.save(subvolumes_tensor, os.path.join(save_dir, 'subvolumes.pt'))
+            torch.save(labels_tensor, os.path.join(save_dir, 'labels.pt'))
+            
+            logger.info(f"Saved {len(subvolumes)} preloaded tensors")
+        else:
+            # Save sample information for on-the-fly loading
+            logger.info("Saving sample information for on-the-fly loading...")
+            
+            sample_data = []
+            for i in range(len(self._points)):
+                point = self._points[i]
+                label = self._labels[i]
+                is_background = self._is_background[i]
+                tomogram_idx = self._tomogram_indices[i] if hasattr(self, '_tomogram_indices') else 0
+                
+                sample_data.append({
+                    'point': point.tolist() if isinstance(point, np.ndarray) else point,
+                    'label': int(label),
+                    'is_background': bool(is_background),
+                    'tomogram_idx': int(tomogram_idx)
+                })
+            
+            with open(os.path.join(save_dir, 'samples.json'), 'w') as f:
+                json.dump(sample_data, f)
         
-        with open(os.path.join(save_dir, 'samples.json'), 'w') as f:
-            json.dump(sample_data, f)
-        
-        # Save tomogram information
+        # Save tomogram information (needed for on-the-fly loading)
         tomogram_info = []
         for idx, tomogram in enumerate(self._tomogram_data):
             tomo_data = {
@@ -501,55 +570,84 @@ class MinimalCopickDataset(Dataset):
         dataset.background_ratio = metadata.get('background_ratio', 0.2)
         dataset.min_background_distance = metadata.get('min_background_distance')
         dataset._name_to_label = metadata.get('name_to_label', {})
+        dataset.preload = metadata.get('preload', True)
         dataset.copick_root = proj
         
-        # Initialize empty data structures
-        dataset._tomogram_data = []
+        # Check if we have preloaded tensors
+        subvolumes_path = os.path.join(save_dir, 'subvolumes.pt')
+        labels_path = os.path.join(save_dir, 'labels.pt')
         
-        # Load sample information
-        with open(os.path.join(save_dir, 'samples.json'), 'r') as f:
-            sample_data = json.load(f)
+        if os.path.exists(subvolumes_path) and os.path.exists(labels_path):
+            logger.info("Loading preloaded tensors...")
             
-        # Extract sample information
-        dataset._points = [np.array(s['point']) for s in sample_data]
-        dataset._labels = [s['label'] for s in sample_data]
-        dataset._is_background = [s['is_background'] for s in sample_data]
-        dataset._tomogram_indices = [s['tomogram_idx'] for s in sample_data]
-        
-        # Load tomogram information
-        with open(os.path.join(save_dir, 'tomogram_info.json'), 'r') as f:
-            tomogram_info = json.load(f)
-        
-        # If a project is provided, attempt to load tomograms from it
-        if proj is not None:
-            logger.info("Loading tomograms from provided project")
+            # Load the tensors
+            subvolumes = torch.load(subvolumes_path)
+            labels = torch.load(labels_path)
             
-            # Initialize tomogram list with placeholders
-            dataset._tomogram_data = [None] * len(tomogram_info)
+            # Store in the dataset
+            dataset._subvolumes = [(subvolumes[i], labels[i].item()) for i in range(len(labels))]
             
-            # Attempt to load tomograms
-            for run in proj.runs:
-                voxel_spacing_obj = run.get_voxel_spacing(dataset.voxel_spacing)
-                if voxel_spacing_obj and voxel_spacing_obj.tomograms:
-                    # Find denoised tomogram if available
-                    tomogram = [t for t in voxel_spacing_obj.tomograms if 'wbp-denoised' in t.tomo_type]
-                    if not tomogram:
-                        tomogram = voxel_spacing_obj.tomograms[0]
-                    else:
-                        tomogram = tomogram[0]
-                        
-                    # Find matching tomogram in info
-                    for tomo_info in tomogram_info:
-                        # Simple check for matching shape as a heuristic
-                        tomo_zarr = zarr.open(tomogram.zarr())["0"]
-                        if list(tomo_zarr.shape) == tomo_info['shape']:
-                            idx = tomo_info['index']
-                            dataset._tomogram_data[idx] = tomo_zarr
-                            logger.info(f"Loaded tomogram at index {idx} with shape {tomo_zarr.shape}")
+            # Create minimal point/label data for compatibility
+            dataset._points = [np.zeros(3) for _ in range(len(labels))]
+            dataset._labels = [label.item() for label in labels]
+            dataset._is_background = [label.item() == -1 for label in labels]
+            dataset._tomogram_indices = [0 for _ in range(len(labels))]
+            dataset._tomogram_data = []
+            
+            logger.info(f"Loaded dataset with {len(dataset._subvolumes)} preloaded subvolumes")
         else:
-            logger.warning("No project provided. Tomograms must be loaded separately.")
+            # Initialize empty data structures
+            dataset._tomogram_data = []
             
-        logger.info(f"Loaded dataset with {len(dataset._points)} samples")
+            # Load sample information
+            with open(os.path.join(save_dir, 'samples.json'), 'r') as f:
+                sample_data = json.load(f)
+                
+            # Extract sample information
+            dataset._points = [np.array(s['point']) for s in sample_data]
+            dataset._labels = [s['label'] for s in sample_data]
+            dataset._is_background = [s['is_background'] for s in sample_data]
+            dataset._tomogram_indices = [s['tomogram_idx'] for s in sample_data]
+            
+            # Load tomogram information
+            with open(os.path.join(save_dir, 'tomogram_info.json'), 'r') as f:
+                tomogram_info = json.load(f)
+            
+            # If a project is provided, attempt to load tomograms from it
+            if proj is not None:
+                logger.info("Loading tomograms from provided project")
+                
+                # Initialize tomogram list with placeholders
+                dataset._tomogram_data = [None] * len(tomogram_info)
+                
+                # Attempt to load tomograms
+                for run in proj.runs:
+                    voxel_spacing_obj = run.get_voxel_spacing(dataset.voxel_spacing)
+                    if voxel_spacing_obj and voxel_spacing_obj.tomograms:
+                        # Find denoised tomogram if available
+                        tomogram = [t for t in voxel_spacing_obj.tomograms if 'wbp-denoised' in t.tomo_type]
+                        if not tomogram:
+                            tomogram = voxel_spacing_obj.tomograms[0]
+                        else:
+                            tomogram = tomogram[0]
+                            
+                        # Find matching tomogram in info
+                        for tomo_info in tomogram_info:
+                            # Simple check for matching shape as a heuristic
+                            tomo_zarr = zarr.open(tomogram.zarr())["0"]
+                            if list(tomo_zarr.shape) == tomo_info['shape']:
+                                idx = tomo_info['index']
+                                dataset._tomogram_data[idx] = tomo_zarr
+                                logger.info(f"Loaded tomogram at index {idx} with shape {tomo_zarr.shape}")
+            else:
+                logger.warning("No project provided. Tomograms must be loaded separately.")
+                
+            logger.info(f"Loaded dataset with {len(dataset._points)} samples")
+            
+            # If preload is True and we have tomogram data, preload the subvolumes
+            if dataset.preload and dataset._tomogram_data and all(t is not None for t in dataset._tomogram_data):
+                logger.info("Preloading subvolumes...")
+                dataset._preload_data()
         
         # Print class distribution
         dataset._print_class_distribution()

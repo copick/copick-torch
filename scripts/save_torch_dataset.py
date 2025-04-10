@@ -10,6 +10,7 @@ import argparse
 import logging
 import os
 import copick
+from tqdm import tqdm
 from copick_torch.minimal_dataset import MinimalCopickDataset
 
 # Configure logging
@@ -43,8 +44,13 @@ def parse_args():
                         help='Ratio of background to particle samples (default: 0.2)')
     parser.add_argument('--min_background_distance', type=float, default=None,
                         help='Minimum distance from particles for background (default: max boxsize)')
+    parser.add_argument('--no-preload', dest='preload', action='store_false',
+                        help='Disable preloading tensors (not recommended)')
     parser.add_argument('--verbose', action='store_true',
                         help='Enable verbose output')
+    
+    # Set defaults
+    parser.set_defaults(preload=True)
     
     return parser.parse_args()
 
@@ -67,6 +73,7 @@ def main():
     logger.info(f"  Include background: {args.include_background}")
     logger.info(f"  Background ratio: {args.background_ratio}")
     logger.info(f"  Min background distance: {args.min_background_distance}")
+    logger.info(f"  Preload: {args.preload}")
     
     # Create the output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
@@ -78,13 +85,19 @@ def main():
         
         # Create the dataset
         logger.info("Creating MinimalCopickDataset...")
+        if args.preload:
+            logger.info("With preloading (this saves all subvolumes as tensor data)")
+        else:
+            logger.info("Without preloading (this saves only metadata and coordinates)")
+            
         dataset = MinimalCopickDataset(
             proj=proj,
             boxsize=tuple(args.boxsize),
             voxel_spacing=args.voxel_spacing,
             include_background=args.include_background,
             background_ratio=args.background_ratio,
-            min_background_distance=args.min_background_distance
+            min_background_distance=args.min_background_distance,
+            preload=args.preload
         )
         
         # Save the dataset
