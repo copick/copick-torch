@@ -6,9 +6,12 @@ import numpy as np
 import torch
 import copick
 import zarr
+import os
+import json
 from torch.utils.data import Dataset
 from collections import Counter
 import logging
+from types import SimpleNamespace
 
 logger = logging.getLogger(__name__)
 
@@ -22,32 +25,32 @@ class MinimalCopickDataset(Dataset):
     3. Has minimal dependencies
     4. Focuses on correct label mapping
     
-    This is useful for generating documentation examples and testing.
+    This dataset can be saved to disk and loaded later for reproducibility.
     """
     
     def __init__(
         self,
-        dataset_id,
-        overlay_root="/tmp/test/",
+        proj=None,
+        dataset_id=None,
+        overlay_root=None,
         boxsize=(48, 48, 48),
         voxel_spacing=10.012,
         include_background=False,
         background_ratio=0.2,
-        min_background_distance=None,
-        max_samples=None
+        min_background_distance=None
     ):
         """
         Initialize a MinimalCopickDataset.
         
         Args:
-            dataset_id: Dataset ID from the CZ cryoET Data Portal
-            overlay_root: Root directory for the overlay storage
+            proj: A copick project object. If provided, dataset_id and overlay_root are ignored.
+            dataset_id: Dataset ID from the CZ cryoET Data Portal. Only used if proj is None.
+            overlay_root: Root directory for the overlay storage. Only used if proj is None.
             boxsize: Size of the subvolumes to extract (z, y, x)
             voxel_spacing: Voxel spacing to use for extraction
             include_background: Whether to include background samples
             background_ratio: Ratio of background to particle samples
             min_background_distance: Minimum distance from particles for background samples
-            max_samples: Maximum number of samples to use (None for no limit)
         """
         self.dataset_id = dataset_id
         self.overlay_root = overlay_root
@@ -56,35 +59,50 @@ class MinimalCopickDataset(Dataset):
         self.include_background = include_background
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
-        self.max_samples = max_samples
         
         # Initialize data structures
         self._points = []  # List of (x, y, z) coordinates
         self._labels = []  # List of class indices
-        self._class_names = []  # List of class names
         self._is_background = []  # List of booleans indicating if a sample is background
-        self._tomogram_zarr = None  # Zarr array for the tomogram
+        self._tomogram_data = []  # List of tomogram zarr arrays
+        self._name_to_label = {}  # Mapping from object names to labels
+        
+        # Set copick project
+        self.copick_root = proj
         
         # Load the data
-        self._load_data()
+        if self.copick_root is not None:
+            self._load_data()
+        elif dataset_id is not None and overlay_root is not None:
+            # Create project from dataset_id and overlay_root
+            self.copick_root = copick.from_czcdp_datasets([dataset_id], overlay_root=overlay_root)
+            self._load_data()
+        
+    def _extract_name_to_label(self):
+        """Extract name to label mapping from pickable objects."""
+        # Create mapping from object names to labels
+        self._name_to_label = {}
+        for obj in self.copick_root.pickable_objects:
+            self._name_to_label[obj.name] = obj.label
+        
+        # Ensure we have a consistent list of object names
+        self._object_names = list(self._name_to_label.keys())
+        
+        logger.info(f"Name to label mapping: {self._name_to_label}")
         
     def _load_data(self):
         """Load data from the copick project."""
         try:
-            # Create copick root object
-            self.copick_root = copick.from_czcdp_datasets([self.dataset_id], overlay_root=self.overlay_root)
-            logger.info(f"Created copick root from dataset ID: {self.dataset_id}")
-            
-            # Get pickable objects
-            self._object_names = [obj.name for obj in self.copick_root.pickable_objects]
-            logger.info(f"Found pickable objects: {self._object_names}")
+            # Extract name to label mapping
+            self._extract_name_to_label()
             
             # Process each run
             all_points = []
             all_labels = []
             all_is_background = []
+            all_tomogram_indices = []
             
-            for run in self.copick_root.runs:
+            for run_idx, run in enumerate(self.copick_root.runs):
                 logger.info(f"Processing run: {run.name}")
                 
                 # Get tomogram
@@ -102,8 +120,9 @@ class MinimalCopickDataset(Dataset):
                         tomogram = tomogram[0]
                         
                     # Open zarr array
-                    self._tomogram_zarr = zarr.open(tomogram.zarr())["0"]
-                    logger.info(f"Loaded tomogram with shape {self._tomogram_zarr.shape}")
+                    tomogram_zarr = zarr.open(tomogram.zarr())["0"]
+                    self._tomogram_data.append(tomogram_zarr)
+                    logger.info(f"Loaded tomogram with shape {tomogram_zarr.shape}")
                     
                     # Store all particle coordinates for background sampling
                     all_particle_coords = []
@@ -115,11 +134,12 @@ class MinimalCopickDataset(Dataset):
                             
                         object_name = picks.pickable_object_name
                         
-                        if object_name not in self._object_names:
-                            logger.warning(f"Object {object_name} not in pickable objects, adding it")
-                            self._object_names.append(object_name)
-                        
-                        class_idx = self._object_names.index(object_name)
+                        # Skip objects not in our mapping
+                        if object_name not in self._name_to_label:
+                            logger.warning(f"Object {object_name} not in pickable objects, skipping")
+                            continue
+                            
+                        class_idx = self._name_to_label[object_name]
                         
                         try:
                             points, _ = picks.numpy()
@@ -134,6 +154,7 @@ class MinimalCopickDataset(Dataset):
                                 all_points.append(point)
                                 all_labels.append(class_idx)
                                 all_is_background.append(False)
+                                all_tomogram_indices.append(run_idx)
                                 all_particle_coords.append(point)
                         except Exception as e:
                             logger.error(f"Error processing picks for {object_name}: {e}")
@@ -146,7 +167,7 @@ class MinimalCopickDataset(Dataset):
                         logger.info(f"Sampling {num_background} background points")
                         
                         bg_points = self._sample_background_points(
-                            self._tomogram_zarr.shape,
+                            tomogram_zarr.shape,
                             all_particle_coords,
                             num_background,
                             self.min_background_distance
@@ -156,6 +177,7 @@ class MinimalCopickDataset(Dataset):
                             all_points.append(point)
                             all_labels.append(-1)  # -1 indicates background
                             all_is_background.append(True)
+                            all_tomogram_indices.append(run_idx)
                             
                 except Exception as e:
                     logger.error(f"Error processing tomogram for run {run.name}: {e}")
@@ -165,13 +187,7 @@ class MinimalCopickDataset(Dataset):
             self._points = all_points
             self._labels = all_labels
             self._is_background = all_is_background
-            
-            # Apply max_samples limit if specified
-            if self.max_samples is not None and len(self._points) > self.max_samples:
-                indices = np.random.choice(len(self._points), self.max_samples, replace=False)
-                self._points = [self._points[i] for i in indices]
-                self._labels = [self._labels[i] for i in indices]
-                self._is_background = [self._is_background[i] for i in indices]
+            self._tomogram_indices = all_tomogram_indices
             
             logger.info(f"Dataset loaded with {len(self._points)} samples")
             
@@ -196,8 +212,11 @@ class MinimalCopickDataset(Dataset):
         
         # Count regular classes
         for cls_idx, count in class_counts.items():
-            if 0 <= cls_idx < len(self._object_names):
-                distribution[self._object_names[cls_idx]] = count
+            # Find the class name for this label
+            for name, label in self._name_to_label.items():
+                if label == cls_idx:
+                    distribution[name] = count
+                    break
         
         logger.info("Class distribution:")
         for class_name, count in distribution.items():
@@ -261,22 +280,25 @@ class MinimalCopickDataset(Dataset):
         logger.info(f"Sampled {len(bg_points)} background points after {attempts} attempts")
         return bg_points
         
-    def extract_subvolume(self, point):
+    def extract_subvolume(self, point, tomogram_idx=0):
         """
         Extract a cubic subvolume centered around a point.
         
         Args:
             point: (x, y, z) coordinates
+            tomogram_idx: Index of the tomogram to use
             
         Returns:
             Extracted subvolume as a numpy array
         """
-        # Check if tomogram is loaded
-        if self._tomogram_zarr is None:
-            raise ValueError("No tomogram loaded")
+        # Check if tomogram exists
+        if tomogram_idx >= len(self._tomogram_data) or self._tomogram_data[tomogram_idx] is None:
+            raise ValueError(f"No tomogram found at index {tomogram_idx}")
             
+        tomogram_zarr = self._tomogram_data[tomogram_idx]
+        
         # Get dimensions of the tomogram
-        z_dim, y_dim, x_dim = self._tomogram_zarr.shape
+        z_dim, y_dim, x_dim = tomogram_zarr.shape
         
         # Convert coordinates to indices
         x_idx = int(point[0] / self.voxel_spacing)
@@ -297,7 +319,7 @@ class MinimalCopickDataset(Dataset):
         z_end = min(z_dim, z_idx + half_z)
         
         # Extract subvolume
-        subvolume = self._tomogram_zarr[z_start:z_end, y_start:y_end, x_start:x_end]
+        subvolume = tomogram_zarr[z_start:z_end, y_start:y_end, x_start:x_end]
         
         # Pad if necessary
         if subvolume.shape != self.boxsize:
@@ -338,12 +360,13 @@ class MinimalCopickDataset(Dataset):
         Returns:
             Tuple of (subvolume, label)
         """
-        # Get the point and label
+        # Get the point, label, and tomogram index
         point = self._points[idx]
         label = self._labels[idx]
+        tomogram_idx = self._tomogram_indices[idx] if hasattr(self, '_tomogram_indices') else 0
         
         # Extract the subvolume
-        subvolume = self.extract_subvolume(point)
+        subvolume = self.extract_subvolume(point, tomogram_idx)
         
         # Normalize
         if np.std(subvolume) > 0:
@@ -357,9 +380,10 @@ class MinimalCopickDataset(Dataset):
     def keys(self):
         """Get the list of class names."""
         # Add background class if included
+        class_names = list(self._name_to_label.keys())
         if self.include_background:
-            return self._object_names + ["background"]
-        return self._object_names
+            return class_names + ["background"]
+        return class_names
         
     def get_class_distribution(self):
         """Get the distribution of classes in the dataset."""
@@ -369,7 +393,11 @@ class MinimalCopickDataset(Dataset):
             if label == -1:
                 distribution["background"] += 1
             else:
-                distribution[self._object_names[label]] += 1
+                # Find the class name for this label
+                for name, idx in self._name_to_label.items():
+                    if idx == label:
+                        distribution[name] += 1
+                        break
                 
         return dict(distribution)
         
@@ -391,3 +419,139 @@ class MinimalCopickDataset(Dataset):
             weights.append(weight)
             
         return weights
+    
+    def save(self, save_dir):
+        """
+        Save the dataset to disk for later reloading.
+        
+        Args:
+            save_dir: Directory to save the dataset
+        """
+        os.makedirs(save_dir, exist_ok=True)
+        
+        # Save metadata
+        metadata = {
+            'dataset_id': self.dataset_id,
+            'boxsize': self.boxsize,
+            'voxel_spacing': self.voxel_spacing,
+            'include_background': self.include_background,
+            'background_ratio': self.background_ratio,
+            'min_background_distance': self.min_background_distance,
+            'name_to_label': self._name_to_label
+        }
+        
+        with open(os.path.join(save_dir, 'metadata.json'), 'w') as f:
+            json.dump(metadata, f)
+        
+        # Save sample information
+        sample_data = []
+        for i in range(len(self._points)):
+            point = self._points[i]
+            label = self._labels[i]
+            is_background = self._is_background[i]
+            tomogram_idx = self._tomogram_indices[i] if hasattr(self, '_tomogram_indices') else 0
+            
+            sample_data.append({
+                'point': point.tolist() if isinstance(point, np.ndarray) else point,
+                'label': int(label),
+                'is_background': bool(is_background),
+                'tomogram_idx': int(tomogram_idx)
+            })
+        
+        with open(os.path.join(save_dir, 'samples.json'), 'w') as f:
+            json.dump(sample_data, f)
+        
+        # Save tomogram information
+        tomogram_info = []
+        for idx, tomogram in enumerate(self._tomogram_data):
+            tomo_data = {
+                'index': idx,
+                'shape': list(tomogram.shape),
+                'path': getattr(tomogram, 'path', str(tomogram))
+            }
+            tomogram_info.append(tomo_data)
+        
+        with open(os.path.join(save_dir, 'tomogram_info.json'), 'w') as f:
+            json.dump(tomogram_info, f)
+            
+        logger.info(f"Dataset saved to {save_dir}")
+    
+    @classmethod
+    def load(cls, save_dir, proj=None):
+        """
+        Load a previously saved dataset.
+        
+        Args:
+            save_dir: Directory where the dataset was saved
+            proj: Optional copick project object. If provided, tomograms will be loaded from it.
+            
+        Returns:
+            Loaded MinimalCopickDataset instance
+        """
+        # Load metadata
+        with open(os.path.join(save_dir, 'metadata.json'), 'r') as f:
+            metadata = json.load(f)
+        
+        # Create a new dataset instance without loading data
+        dataset = cls.__new__(cls)
+        dataset.dataset_id = metadata.get('dataset_id')
+        dataset.boxsize = metadata.get('boxsize', (48, 48, 48))
+        dataset.voxel_spacing = metadata.get('voxel_spacing', 10.012)
+        dataset.include_background = metadata.get('include_background', False)
+        dataset.background_ratio = metadata.get('background_ratio', 0.2)
+        dataset.min_background_distance = metadata.get('min_background_distance')
+        dataset._name_to_label = metadata.get('name_to_label', {})
+        dataset.copick_root = proj
+        
+        # Initialize empty data structures
+        dataset._tomogram_data = []
+        
+        # Load sample information
+        with open(os.path.join(save_dir, 'samples.json'), 'r') as f:
+            sample_data = json.load(f)
+            
+        # Extract sample information
+        dataset._points = [np.array(s['point']) for s in sample_data]
+        dataset._labels = [s['label'] for s in sample_data]
+        dataset._is_background = [s['is_background'] for s in sample_data]
+        dataset._tomogram_indices = [s['tomogram_idx'] for s in sample_data]
+        
+        # Load tomogram information
+        with open(os.path.join(save_dir, 'tomogram_info.json'), 'r') as f:
+            tomogram_info = json.load(f)
+        
+        # If a project is provided, attempt to load tomograms from it
+        if proj is not None:
+            logger.info("Loading tomograms from provided project")
+            
+            # Initialize tomogram list with placeholders
+            dataset._tomogram_data = [None] * len(tomogram_info)
+            
+            # Attempt to load tomograms
+            for run in proj.runs:
+                voxel_spacing_obj = run.get_voxel_spacing(dataset.voxel_spacing)
+                if voxel_spacing_obj and voxel_spacing_obj.tomograms:
+                    # Find denoised tomogram if available
+                    tomogram = [t for t in voxel_spacing_obj.tomograms if 'wbp-denoised' in t.tomo_type]
+                    if not tomogram:
+                        tomogram = voxel_spacing_obj.tomograms[0]
+                    else:
+                        tomogram = tomogram[0]
+                        
+                    # Find matching tomogram in info
+                    for tomo_info in tomogram_info:
+                        # Simple check for matching shape as a heuristic
+                        tomo_zarr = zarr.open(tomogram.zarr())["0"]
+                        if list(tomo_zarr.shape) == tomo_info['shape']:
+                            idx = tomo_info['index']
+                            dataset._tomogram_data[idx] = tomo_zarr
+                            logger.info(f"Loaded tomogram at index {idx} with shape {tomo_zarr.shape}")
+        else:
+            logger.warning("No project provided. Tomograms must be loaded separately.")
+            
+        logger.info(f"Loaded dataset with {len(dataset._points)} samples")
+        
+        # Print class distribution
+        dataset._print_class_distribution()
+        
+        return dataset
