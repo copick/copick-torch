@@ -8,6 +8,7 @@ Torch utilities for [copick](https://github.com/copick/copick)
 
 - `SimpleCopickDataset`: Main dataset class with caching and augmentation support
 - `MinimalCopickDataset`: Simpler dataset implementation that loads data on-the-fly, without caching or augmentation
+- `PreloadedCopickDataset`: Extension of MinimalCopickDataset that preloads all subvolumes into memory and saves tensors directly
 
 ### MinimalCopickDataset Usage
 
@@ -53,14 +54,21 @@ for volume, label in dataloader:
 
 #### Saving and loading datasets
 
-The `MinimalCopickDataset` can be saved to disk and loaded later:
+Datasets can be saved to disk and loaded later. The `save_torch_dataset.py` script now uses `PreloadedCopickDataset` by default, which preloads all data into memory and saves the actual tensors:
 
 ```python
-# Save a dataset to disk
+# Create a preloaded dataset (with all tensors in memory)
+from copick_torch import PreloadedCopickDataset
+dataset = PreloadedCopickDataset(
+    dataset_id=10440,
+    overlay_root='/tmp/copick_overlay'
+)
+
+# Save a dataset to disk (includes the actual tensor data)
 dataset.save('/path/to/save')
 
-# Load a dataset from disk
-loaded_dataset = MinimalCopickDataset.load('/path/to/save')
+# Load a dataset from disk (no need for original tomogram data)
+loaded_dataset = PreloadedCopickDataset.load('/path/to/save')
 ```
 
 You can also use the provided utility script to save a dataset directly from the command line:
@@ -137,7 +145,7 @@ python scripts/generate_augmentation_docs.py
 # Generate dataset documentation
 python scripts/generate_dataset_examples.py
 
-# Save dataset to disk for later use
+# Save dataset to disk for later use (with preloaded tensors)
 python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save
 
 # Display information about a saved dataset

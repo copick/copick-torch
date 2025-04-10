@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Utility script to load a saved MinimalCopickDataset and display information about it.
+Utility script to load a saved PreloadedCopickDataset and display information about it.
 
 Usage:
     python info_torch_dataset.py --input_dir /path/to/saved/dataset
@@ -14,7 +14,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from copick_torch.minimal_dataset import MinimalCopickDataset
+from copick_torch.preloaded_dataset import PreloadedCopickDataset
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Load and display information about a saved MinimalCopickDataset')
+    parser = argparse.ArgumentParser(description='Load and display information about a saved PreloadedCopickDataset')
     
     # Required arguments
     parser.add_argument('--input_dir', type=str, required=True,
@@ -82,6 +82,16 @@ def main():
         logger.error(f"Metadata file not found: {metadata_path}")
         return 1
     
+    # Check if we have preloaded tensors
+    subvolumes_path = os.path.join(args.input_dir, 'subvolumes.pt')
+    labels_path = os.path.join(args.input_dir, 'labels.pt')
+    
+    has_preloaded_tensors = os.path.exists(subvolumes_path) and os.path.exists(labels_path)
+    if has_preloaded_tensors:
+        logger.info("Detected preloaded tensor data.")
+    else:
+        logger.warning("No preloaded tensor data found. Dataset may not have been saved with preloading.")
+    
     try:
         # Load metadata file to display basic information
         with open(metadata_path, 'r') as f:
@@ -101,31 +111,33 @@ def main():
         for name, label in name_to_label.items():
             logger.info(f"  {name}: {label}")
         
-        # Load sample information to get dataset size
-        samples_path = os.path.join(args.input_dir, 'samples.json')
-        if os.path.isfile(samples_path):
-            with open(samples_path, 'r') as f:
-                samples = json.load(f)
-            logger.info(f"Total samples: {len(samples)}")
+        # If we have preloaded tensors, load and analyze them
+        if has_preloaded_tensors:
+            logger.info("Loading preloaded tensors...")
+            subvolumes = torch.load(subvolumes_path)
+            labels = torch.load(labels_path)
+            
+            logger.info(f"Tensor data loaded: {subvolumes.shape}, {labels.shape}")
+            logger.info(f"Total samples: {len(labels)}")
             
             # Calculate class distribution
             class_counts = {}
-            for sample in samples:
-                label = sample['label']
+            for label in labels:
+                label_val = label.item()
                 
                 # Handle background label
-                if label == -1:
+                if label_val == -1:
                     class_name = "background"
                 else:
                     # Find class name for this label
                     class_name = None
                     for name, idx in name_to_label.items():
-                        if idx == label:
+                        if idx == label_val:
                             class_name = name
                             break
                     
                     if class_name is None:
-                        class_name = f"Unknown_Label_{label}"
+                        class_name = f"Unknown_Label_{label_val}"
                 
                 if class_name not in class_counts:
                     class_counts[class_name] = 0
@@ -133,8 +145,44 @@ def main():
             
             logger.info("Class distribution:")
             for class_name, count in class_counts.items():
-                percentage = 100 * count / len(samples)
+                percentage = 100 * count / len(labels)
                 logger.info(f"  {class_name}: {count} samples ({percentage:.2f}%)")
+                
+        # Otherwise, load sample information
+        else:
+            samples_path = os.path.join(args.input_dir, 'samples.json')
+            if os.path.isfile(samples_path):
+                with open(samples_path, 'r') as f:
+                    samples = json.load(f)
+                logger.info(f"Total samples: {len(samples)}")
+                
+                # Calculate class distribution
+                class_counts = {}
+                for sample in samples:
+                    label = sample['label']
+                    
+                    # Handle background label
+                    if label == -1:
+                        class_name = "background"
+                    else:
+                        # Find class name for this label
+                        class_name = None
+                        for name, idx in name_to_label.items():
+                            if idx == label:
+                                class_name = name
+                                break
+                        
+                        if class_name is None:
+                            class_name = f"Unknown_Label_{label}"
+                    
+                    if class_name not in class_counts:
+                        class_counts[class_name] = 0
+                    class_counts[class_name] += 1
+                
+                logger.info("Class distribution:")
+                for class_name, count in class_counts.items():
+                    percentage = 100 * count / len(samples)
+                    logger.info(f"  {class_name}: {count} samples ({percentage:.2f}%)")
         
         # Load tomogram information
         tomogram_path = os.path.join(args.input_dir, 'tomogram_info.json')
@@ -145,9 +193,9 @@ def main():
             for idx, tomogram in enumerate(tomogram_info):
                 logger.info(f"  Tomogram {idx}: shape {tomogram.get('shape')}")
         
-        # Load the dataset
+        # Load the dataset using the PreloadedCopickDataset class
         logger.info(f"Loading dataset from {args.input_dir}...")
-        dataset = MinimalCopickDataset.load(args.input_dir)
+        dataset = PreloadedCopickDataset.load(args.input_dir)
         logger.info(f"Dataset loaded with {len(dataset)} samples")
         
         # Get a sample to check dimensions

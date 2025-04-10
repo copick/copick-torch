@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Utility script to create and save a MinimalCopickDataset to disk.
+Utility script to create and save a preloaded CopickDataset to disk.
 
 Usage:
     python save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/output
@@ -10,7 +10,8 @@ import argparse
 import logging
 import os
 import copick
-from copick_torch.minimal_dataset import MinimalCopickDataset
+from tqdm import tqdm
+from copick_torch.preloaded_dataset import PreloadedCopickDataset
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Create and save a MinimalCopickDataset to disk')
+    parser = argparse.ArgumentParser(description='Create and save a preloaded CopickDataset to disk')
     
     # Required arguments
     parser.add_argument('--dataset_id', type=int, required=True,
@@ -76,9 +77,9 @@ def main():
         logger.info(f"Loading dataset {args.dataset_id} from CoPICK...")
         proj = copick.from_czcdp_datasets([args.dataset_id], overlay_root=args.overlay_root)
         
-        # Create the dataset
-        logger.info("Creating MinimalCopickDataset...")
-        dataset = MinimalCopickDataset(
+        # Create the preloaded dataset
+        logger.info("Creating PreloadedCopickDataset (with tensor preloading)...")
+        dataset = PreloadedCopickDataset(
             proj=proj,
             boxsize=tuple(args.boxsize),
             voxel_spacing=args.voxel_spacing,
@@ -88,7 +89,7 @@ def main():
         )
         
         # Save the dataset
-        logger.info(f"Saving dataset to {args.output_dir}...")
+        logger.info(f"Saving dataset with preloaded tensors to {args.output_dir}...")
         dataset.save(args.output_dir)
         
         # Log completion
