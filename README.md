@@ -92,6 +92,8 @@ Options:
   --voxel_spacing SPACING   Voxel spacing to use (default: 10.012)
   --include_background      Include background samples in the dataset
   --background_ratio RATIO  Ratio of background to particle samples (default: 0.2)
+  --workers WORKERS         Number of worker processes for parallel loading (default: CPU count - 1)
+  --batch_size BATCH_SIZE   Batch size for parallel loading (default: 32)
   --no-preload              Disable preloading tensors (not recommended)
   --verbose                 Enable verbose output
 ```
