@@ -78,6 +78,9 @@ def main():
     logger.info(f"  Background ratio: {args.background_ratio}")
     logger.info(f"  Min background distance: {args.min_background_distance}")
     logger.info(f"  Preload: {args.preload}")
+    if args.preload:
+        logger.info(f"  Workers: {args.workers if args.workers else 'Auto (CPU count - 1)'}")
+        logger.info(f"  Batch size: {args.batch_size}")
     
     # Create the output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
