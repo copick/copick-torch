@@ -156,6 +156,53 @@ python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/sa
 
 # Display information about a saved dataset
 python scripts/info_torch_dataset.py --input_dir /path/to/save
+
+# Visualize dataset with orthogonal views and projections
+python examples/visualize_dataset.py --dataset_dir /path/to/save --output_file report.png
+
+# Create enhanced visual report with sum projections
+python examples/visualize_dataset_enhanced.py --dataset_dir /path/to/save --output_file report_enhanced.png
+```
+
+## Dataset Visualization
+
+The repository includes two scripts for visualizing datasets:
+
+### Basic Visualization
+
+The `visualize_dataset.py` script creates a simple visualization of dataset samples with orthogonal views and maximum intensity projections:
+
+```bash
+python examples/visualize_dataset.py --dataset_dir /path/to/saved/dataset --output_file report.png
+```
+
+Options:
+```
+  --dataset_dir DATASET_DIR   Directory where the dataset was saved
+  --output_file OUTPUT_FILE   Output file for the visualization (default: dataset_visualization.png)
+  --samples_per_class SAMPLES_PER_CLASS
+                            Number of samples to display per class (default: 2)
+  --dpi DPI                 DPI for the output image (default: 150)
+  --verbose                 Enable verbose output
+```
+
+### Enhanced Visualization
+
+The `visualize_dataset_enhanced.py` script creates a more elegant visualization with sum projections and better layout:
+
+```bash
+python examples/visualize_dataset_enhanced.py --dataset_dir /path/to/saved/dataset --output_file report_enhanced.png
+```
+
+Options:
+```
+  --dataset_dir DATASET_DIR   Directory where the dataset was saved
+  --output_file OUTPUT_FILE   Output file for the visualization (default: dataset_visualization_enhanced.png)
+  --samples_per_class SAMPLES_PER_CLASS
+                            Number of samples to display per class (default: 2)
+  --dpi DPI                 DPI for the output image (default: 150)
+  --cmap CMAP               Colormap to use for visualization (default: viridis)
+  --verbose                 Enable verbose output
 ```
 
 ## Features
