@@ -618,6 +618,8 @@ class MinimalCopickDataset(Dataset):
         dataset._name_to_label = metadata.get('name_to_label', {})
         dataset.preload = metadata.get('preload', True)
         dataset.copick_root = proj
+        dataset.num_workers = num_workers
+        dataset.batch_size = batch_size
         
         # Check if we have preloaded tensors
         subvolumes_path = os.path.join(save_dir, 'subvolumes.pt')
