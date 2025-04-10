@@ -210,7 +210,7 @@ class MinimalCopickDataset(Dataset):
             
             # Preload all subvolumes if requested
             if self.preload and len(self._points) > 0:
-                self._preload_data()
+                self._preload_data(num_workers=self.num_workers, batch_size=self.batch_size)
             
         except Exception as e:
             logger.error(f"Error loading data: {e}")
