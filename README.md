@@ -11,6 +11,8 @@ Torch utilities for [copick](https://github.com/copick/copick)
 
 ### MinimalCopickDataset Usage
 
+#### Direct usage in Python
+
 ```python
 from copick_torch import MinimalCopickDataset
 from torch.utils.data import DataLoader
@@ -49,6 +51,37 @@ for volume, label in dataloader:
     pass
 ```
 
+#### Saving and loading datasets
+
+The `MinimalCopickDataset` can be saved to disk and loaded later:
+
+```python
+# Save a dataset to disk
+dataset.save('/path/to/save')
+
+# Load a dataset from disk
+loaded_dataset = MinimalCopickDataset.load('/path/to/save')
+```
+
+You can also use the provided utility script to save a dataset directly from the command line:
+
+```bash
+python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save
+```
+
+Options:
+```
+  --dataset_id DATASET_ID   Dataset ID from the CZ cryoET Data Portal
+  --output_dir OUTPUT_DIR   Directory to save the dataset
+  --overlay_root OVERLAY_ROOT
+                            Root directory for overlay storage (default: /tmp/copick_overlay)
+  --boxsize Z Y X           Size of subvolumes to extract (default: 48 48 48)
+  --voxel_spacing SPACING   Voxel spacing to use (default: 10.012)
+  --include_background      Include background samples in the dataset
+  --background_ratio RATIO  Ratio of background to particle samples (default: 0.2)
+  --verbose                 Enable verbose output
+```
+
 ## Quick demo
 
 ```bash
@@ -72,6 +105,9 @@ python scripts/generate_augmentation_docs.py
 
 # Generate dataset documentation
 python scripts/generate_dataset_examples.py
+
+# Save dataset to disk for later use
+python scripts/save_torch_dataset.py --dataset_id 10440 --output_dir /path/to/save
 ```
 
 ## Features
