@@ -44,6 +44,10 @@ def parse_args():
                         help='Ratio of background to particle samples (default: 0.2)')
     parser.add_argument('--min_background_distance', type=float, default=None,
                         help='Minimum distance from particles for background (default: max boxsize)')
+    parser.add_argument('--workers', type=int, default=None,
+                        help='Number of worker processes for parallel loading (default: CPU count - 1)')
+    parser.add_argument('--batch_size', type=int, default=32,
+                        help='Batch size for parallel loading (default: 32)')
     parser.add_argument('--no-preload', dest='preload', action='store_false',
                         help='Disable preloading tensors (not recommended)')
     parser.add_argument('--verbose', action='store_true',
