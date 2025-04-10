@@ -126,14 +126,19 @@ class MinimalCopickDataset(Dataset):
                     else:
                         tomogram = tomogram[0]
                         
-                    # Open zarr array
+                    # Open zarr array and load it fully into memory
                     tomogram_zarr = zarr.open(tomogram.zarr())["0"]
-                    self._tomogram_data.append(tomogram_zarr)
-                    logger.info(f"Loaded tomogram with shape {tomogram_zarr.shape}")
+                    tomogram_data = np.array(tomogram_zarr[:])
+                    self._tomogram_data.append(tomogram_data)
+                    logger.info(f"Loaded tomogram with shape {tomogram_data.shape} into memory")
                     
                     # Store all particle coordinates for background sampling
                     all_particle_coords = []
                     
+                    # Initialize storage for preloaded data if preloading is enabled
+                    if self.preload and not hasattr(self, '_subvolumes'):
+                        self._subvolumes = []
+                        
                     # Process picks for each object type
                     for picks in run.get_picks():
                         if not picks.from_tool:
@@ -163,6 +168,62 @@ class MinimalCopickDataset(Dataset):
                                 all_is_background.append(False)
                                 all_tomogram_indices.append(run_idx)
                                 all_particle_coords.append(point)
+                                
+                                # If preloading is enabled, extract and store the subvolume immediately
+                                if self.preload:
+                                    # Convert coordinates to indices
+                                    x_idx = int(point[0] / self.voxel_spacing)
+                                    y_idx = int(point[1] / self.voxel_spacing)
+                                    z_idx = int(point[2] / self.voxel_spacing)
+                                    
+                                    # Calculate half box sizes
+                                    half_x = self.boxsize[2] // 2
+                                    half_y = self.boxsize[1] // 2
+                                    half_z = self.boxsize[0] // 2
+                                    
+                                    # Calculate bounds with boundary checking
+                                    x_start = max(0, x_idx - half_x)
+                                    x_end = min(tomogram_data.shape[2], x_idx + half_x)
+                                    y_start = max(0, y_idx - half_y)
+                                    y_end = min(tomogram_data.shape[1], y_idx + half_y)
+                                    z_start = max(0, z_idx - half_z)
+                                    z_end = min(tomogram_data.shape[0], z_idx + half_z)
+                                    
+                                    # Extract subvolume
+                                    subvolume = tomogram_data[z_start:z_end, y_start:y_end, x_start:x_end].copy()
+                                    
+                                    # Pad if necessary
+                                    if subvolume.shape != self.boxsize:
+                                        padded = np.zeros(self.boxsize, dtype=subvolume.dtype)
+                                        
+                                        # Calculate padding dimensions
+                                        pad_z = min(z_end - z_start, self.boxsize[0])
+                                        pad_y = min(y_end - y_start, self.boxsize[1])
+                                        pad_x = min(x_end - x_start, self.boxsize[2])
+                                        
+                                        # Calculate padding offsets (center the subvolume in the padded volume)
+                                        z_offset = (self.boxsize[0] - pad_z) // 2
+                                        y_offset = (self.boxsize[1] - pad_y) // 2
+                                        x_offset = (self.boxsize[2] - pad_x) // 2
+                                        
+                                        # Insert subvolume into padded volume
+                                        padded[
+                                            z_offset:z_offset+pad_z,
+                                            y_offset:y_offset+pad_y,
+                                            x_offset:x_offset+pad_x
+                                        ] = subvolume
+                                        
+                                        subvolume = padded
+                                    
+                                    # Normalize
+                                    if np.std(subvolume) > 0:
+                                        subvolume = (subvolume - np.mean(subvolume)) / np.std(subvolume)
+                                    
+                                    # Add channel dimension and convert to tensor
+                                    subvolume_tensor = torch.as_tensor(subvolume[None, ...], dtype=torch.float32)
+                                    
+                                    # Store the preloaded tensor with its label
+                                    self._subvolumes.append((subvolume_tensor, class_idx))
                         except Exception as e:
                             logger.error(f"Error processing picks for {object_name}: {e}")
                     
@@ -174,7 +235,7 @@ class MinimalCopickDataset(Dataset):
                         logger.info(f"Sampling {num_background} background points")
                         
                         bg_points = self._sample_background_points(
-                            tomogram_zarr.shape,
+                            tomogram_data.shape,
                             all_particle_coords,
                             num_background,
                             self.min_background_distance
@@ -185,6 +246,62 @@ class MinimalCopickDataset(Dataset):
                             all_labels.append(-1)  # -1 indicates background
                             all_is_background.append(True)
                             all_tomogram_indices.append(run_idx)
+                            
+                            # If preloading is enabled, extract and store the background subvolume immediately
+                            if self.preload:
+                                # Convert coordinates to indices
+                                x_idx = int(point[0] / self.voxel_spacing)
+                                y_idx = int(point[1] / self.voxel_spacing)
+                                z_idx = int(point[2] / self.voxel_spacing)
+                                
+                                # Calculate half box sizes
+                                half_x = self.boxsize[2] // 2
+                                half_y = self.boxsize[1] // 2
+                                half_z = self.boxsize[0] // 2
+                                
+                                # Calculate bounds with boundary checking
+                                x_start = max(0, x_idx - half_x)
+                                x_end = min(tomogram_data.shape[2], x_idx + half_x)
+                                y_start = max(0, y_idx - half_y)
+                                y_end = min(tomogram_data.shape[1], y_idx + half_y)
+                                z_start = max(0, z_idx - half_z)
+                                z_end = min(tomogram_data.shape[0], z_idx + half_z)
+                                
+                                # Extract subvolume
+                                subvolume = tomogram_data[z_start:z_end, y_start:y_end, x_start:x_end].copy()
+                                
+                                # Pad if necessary
+                                if subvolume.shape != self.boxsize:
+                                    padded = np.zeros(self.boxsize, dtype=subvolume.dtype)
+                                    
+                                    # Calculate padding dimensions
+                                    pad_z = min(z_end - z_start, self.boxsize[0])
+                                    pad_y = min(y_end - y_start, self.boxsize[1])
+                                    pad_x = min(x_end - x_start, self.boxsize[2])
+                                    
+                                    # Calculate padding offsets (center the subvolume in the padded volume)
+                                    z_offset = (self.boxsize[0] - pad_z) // 2
+                                    y_offset = (self.boxsize[1] - pad_y) // 2
+                                    x_offset = (self.boxsize[2] - pad_x) // 2
+                                    
+                                    # Insert subvolume into padded volume
+                                    padded[
+                                        z_offset:z_offset+pad_z,
+                                        y_offset:y_offset+pad_y,
+                                        x_offset:x_offset+pad_x
+                                    ] = subvolume
+                                    
+                                    subvolume = padded
+                                
+                                # Normalize
+                                if np.std(subvolume) > 0:
+                                    subvolume = (subvolume - np.mean(subvolume)) / np.std(subvolume)
+                                
+                                # Add channel dimension and convert to tensor
+                                subvolume_tensor = torch.as_tensor(subvolume[None, ...], dtype=torch.float32)
+                                
+                                # Store the preloaded tensor with its label (-1 for background)
+                                self._subvolumes.append((subvolume_tensor, -1))
                             
                 except Exception as e:
                     logger.error(f"Error processing tomogram for run {run.name}: {e}")
@@ -201,9 +318,9 @@ class MinimalCopickDataset(Dataset):
             # Print class distribution
             self._print_class_distribution()
             
-            # Preload all subvolumes if requested
-            if self.preload and len(self._points) > 0:
-                self._preload_data()
+            # If preloading is enabled, the subvolumes are already preloaded during point extraction
+            if self.preload and len(self._points) > 0 and not hasattr(self, '_subvolumes'):
+                logger.info("Preloading was requested but no preloaded data exists")
             
         except Exception as e:
             logger.error(f"Error loading data: {e}")
@@ -212,6 +329,14 @@ class MinimalCopickDataset(Dataset):
     def _preload_data(self):
         """Preload all subvolumes into memory."""
         logger.info(f"Preloading {len(self._points)} subvolumes into memory...")
+        
+        # This method is preserved for backward compatibility but should not be called
+        # during normal operation since preloading now happens during _load_data
+        
+        # Check if preloading already happened
+        if hasattr(self, '_subvolumes') and self._subvolumes:
+            logger.info(f"Subvolumes are already preloaded ({len(self._subvolumes)} subvolumes)")
+            return
         
         # Initialize storage for preloaded data
         self._subvolumes = []
@@ -358,7 +483,7 @@ class MinimalCopickDataset(Dataset):
         z_end = min(z_dim, z_idx + half_z)
         
         # Extract subvolume
-        subvolume = tomogram_zarr[z_start:z_end, y_start:y_end, x_start:x_end]
+        subvolume = tomogram_zarr[z_start:z_end, y_start:y_end, x_start:x_end].copy()
         
         # Pad if necessary
         if subvolume.shape != self.boxsize:
