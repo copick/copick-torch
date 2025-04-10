@@ -40,7 +40,9 @@ class MinimalCopickDataset(Dataset):
         include_background=False,
         background_ratio=0.2,
         min_background_distance=None,
-        preload=True
+        preload=True,
+        num_workers=None,
+        batch_size=32
     ):
         """
         Initialize a MinimalCopickDataset.
@@ -55,6 +57,8 @@ class MinimalCopickDataset(Dataset):
             background_ratio: Ratio of background to particle samples
             min_background_distance: Minimum distance from particles for background samples
             preload: Whether to preload all subvolumes into memory (faster but more memory intensive)
+            num_workers: Number of worker processes to use for parallel loading (default: number of CPU cores - 1)
+            batch_size: Batch size for parallel loading (default: 32)
         """
         self.dataset_id = dataset_id
         self.overlay_root = overlay_root
@@ -64,6 +68,8 @@ class MinimalCopickDataset(Dataset):
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
         self.preload = preload
+        self.num_workers = num_workers
+        self.batch_size = batch_size
         
         # Initialize data structures
         self._points = []  # List of (x, y, z) coordinates
