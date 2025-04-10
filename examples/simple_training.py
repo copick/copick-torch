@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler
-from copick_torch import CopickDataset
+from copick_torch.minimal_dataset import MinimalCopickDataset
 import matplotlib.pyplot as plt
 import numpy as np
 import multiprocessing
@@ -10,17 +10,16 @@ def main():
     # Create cache directory if it doesn't exist
     os.makedirs("./cache", exist_ok=True)
 
-    # Basic usage with background sampling and parquet caching
-    dataset = CopickDataset(
-        config_path='./examples/czii_object_detection_training.json',
+    # Basic usage with background sampling using MinimalCopickDataset
+    dataset = MinimalCopickDataset(
+        dataset_id=10440,  # Replace with your dataset ID from CZ cryoET Data Portal
+        overlay_root="./overlay",  # Replace with your overlay root path
         boxsize=(32, 32, 32),
-        augment=True,
-        cache_dir='./cache',
-        cache_format='parquet',  # Use parquet caching instead of pickle
         voxel_spacing=10.012,
         include_background=True,  # Enable background sampling
         background_ratio=0.2,     # 20% of particles will be background samples
-        min_background_distance=48  # Min distance in voxels from particles
+        min_background_distance=48,  # Min distance in voxels from particles
+        preload=True  # Preload data into memory for faster access
     )
 
     # Print dataset information
@@ -50,7 +49,7 @@ def main():
 
     # Simple training loop example
     # Expand model to handle background class (labeled as -1)
-    num_classes = len(dataset.keys()) + 1  # Add one for background
+    num_classes = len(dataset.keys())
     model = torch.nn.Sequential(
         torch.nn.Conv3d(1, 16, kernel_size=3, padding=1),
         torch.nn.ReLU(),
@@ -66,8 +65,7 @@ def main():
 
     # Move to GPU if available
     device = torch.device(
-        'cuda' if torch.cuda.is_available() else
-        'cpu'
+        'cuda' if torch.cuda.is_available() else 'cpu'
     )
     #         'mps' if torch.backends.mps.is_available() else
     # mps still doesnt have max pool 3d
@@ -115,25 +113,49 @@ def main():
               f'Accuracy: {100.0*correct/total:.2f}%')
 
     print('Finished Training')
-
-    # Get example volumes for each class
-    examples, class_names = dataset.examples()
-    print(f"Examples shape: {examples.shape}")
-    print(f"Class names: {class_names}")
+    
+    # Save the trained model
+    torch.save(model.state_dict(), "model.pth")
+    print("Model saved to model.pth")
 
 def visualize_examples(dataset):
     """Visualize example volumes from each class."""
-    examples, class_names = dataset.examples()
+    # Get one example from each class
+    examples = []
+    class_names = []
     
-    if examples is None:
+    # Get class distribution
+    distribution = dataset.get_class_distribution()
+    
+    # For each class, find one example
+    for class_name in distribution.keys():
+        for i in range(len(dataset)):
+            volume, label = dataset[i]
+            
+            # Find the class name for this label
+            found_class_name = None
+            if label == -1:
+                found_class_name = "background"
+            else:
+                for name, idx in dataset._name_to_label.items():
+                    if idx == label:
+                        found_class_name = name
+                        break
+            
+            if found_class_name == class_name:
+                examples.append(volume)
+                class_names.append(class_name)
+                break
+    
+    if not examples:
         print("No examples available")
         return
         
     # Convert to numpy for visualization
-    examples = examples.numpy()
+    examples_np = [ex.numpy() for ex in examples]
     
     # Create a figure with subplots
-    n_examples = len(examples)
+    n_examples = len(examples_np)
     fig, axes = plt.subplots(1, n_examples, figsize=(4*n_examples, 4))
     
     # Handle case with only one example
@@ -141,7 +163,7 @@ def visualize_examples(dataset):
         axes = [axes]
     
     # Plot middle slice of each example
-    for i, (volume, class_name) in enumerate(zip(examples, class_names)):
+    for i, (volume, class_name) in enumerate(zip(examples_np, class_names)):
         # Get middle slice (channel, z, y, x)
         middle_slice = volume[0, volume.shape[1]//2, :, :]
         
@@ -153,6 +175,7 @@ def visualize_examples(dataset):
     
     plt.tight_layout()
     plt.savefig("class_examples.png")
+    print("Class examples saved to class_examples.png")
     plt.show()
 
 if __name__ == "__main__":
@@ -161,13 +184,14 @@ if __name__ == "__main__":
     main()
     
     # Create a small dataset for visualization
-    vis_dataset = CopickDataset(
-        config_path='./examples/czii_object_detection_training.json',
+    vis_dataset = MinimalCopickDataset(
+        dataset_id=10440,  # Replace with your dataset ID from CZ cryoET Data Portal
+        overlay_root="./overlay",  # Replace with your overlay root path
         boxsize=(32, 32, 32),
-        augment=False,
-        cache_dir='./cache',
+        voxel_spacing=10.012,
         include_background=True,
-        max_samples=100  # Limit samples for faster loading
+        min_background_distance=48,
+        preload=True
     )
     
     # Visualize examples
