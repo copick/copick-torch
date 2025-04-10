@@ -13,6 +13,7 @@ from collections import Counter
 import logging
 from types import SimpleNamespace
 from tqdm import tqdm
+from .parallel_utils import parallel_preload_data
 
 logger = logging.getLogger(__name__)
 
