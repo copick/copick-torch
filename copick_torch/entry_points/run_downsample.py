@@ -64,3 +64,7 @@ def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source,
     if delete_source:
         vs = run.get_voxel_spacing(voxel_size)
         vs.delete_tomograms(tomo_alg)
+
+        #If the Voxel Spacing is Empty, lets delete it as well
+        if vs.tomograms == []:
+            vs.delete()

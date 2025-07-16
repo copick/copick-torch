@@ -18,6 +18,8 @@ dependencies = [
     "scikit-image",
     "scipy",
     "mrcfile",
+    "gdown",
+    "membrain-seg",
     "copick>=1.0.1",
     "numcodecs<0.16.0",
     "pandas>=2.2.3",
@@ -37,8 +39,13 @@ test = [
 ]
 
 [project.scripts]
-copick-torch = "copick_torch.cli:cli"
 coverage-report = "scripts.coverage_report:main"
+
+[project.entry-points."copick.process.commands"]
+downsample = "copick_torch.entry_points.run_downsample.downsample"
+
+[project.entry-points."copick.inference.commands"]
+membrain-seg = "copick_torch.entry_points.run_membrane_seg.cli"
 
 [tool.hatch.metadata]
 allow-direct-references = true
