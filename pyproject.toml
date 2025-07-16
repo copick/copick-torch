@@ -30,6 +30,7 @@ dependencies = [
     "numpy",
     "scipy",
     "copick>=1.8.2",
+    "pandas"
 ]
 authors = [
     { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" },
