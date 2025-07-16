@@ -18,22 +18,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install ".[test]"
         python -m pip install pytest pytest-cov codecov
-    
+
     - name: Run tests and collect coverage
       run: |
         pytest
-    
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:

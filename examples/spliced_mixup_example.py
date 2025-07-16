@@ -4,44 +4,47 @@ Example demonstrating the use of SplicedMixupDataset with visualization.
 This script shows how to use the SplicedMixupDataset for balanced sampling and synthetic-experimental data splicing.
 """
 
-import torch
-from torch.utils.data import DataLoader, WeightedRandomSampler
-from copick_torch import SplicedMixupDataset, setup_logging
-import matplotlib.pyplot as plt
-import numpy as np
 import multiprocessing
 import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from torch.utils.data import DataLoader, WeightedRandomSampler
+
+from copick_torch import SplicedMixupDataset, setup_logging
+
 
 def main():
     # Set up logging
     setup_logging()
-    
+
     # Create cache directory if it doesn't exist
     os.makedirs("./cache", exist_ok=True)
 
     # Basic usage of SplicedMixupDataset
     dataset = SplicedMixupDataset(
-        exp_dataset_id=10440,         # Experimental dataset ID
-        synth_dataset_id=10441,       # Synthetic dataset ID
-        synth_run_id="16487",         # Synthetic run ID
-        overlay_root="/tmp/test/",     # Overlay root directory
-        boxsize=(48, 48, 48),          # Size of the subvolumes
-        augment=True,                 # Enable basic augmentations
-        cache_dir='./cache',          # Cache directory
-        cache_format='parquet',       # Cache format
-        voxel_spacing=10.012,           # Voxel spacing (use the exact spacing for best results)
-        include_background=True,      # Include background samples
-        background_ratio=0.2,         # Background ratio
-        min_background_distance=48,   # Minimum distance from particles for background
-        blend_sigma=2.0,              # Controls the standard deviation of Gaussian blending at boundaries
-        mixup_alpha=0.2,              # Alpha parameter for mixup
-        max_samples=100               # Maximum number of samples to generate
+        exp_dataset_id=10440,  # Experimental dataset ID
+        synth_dataset_id=10441,  # Synthetic dataset ID
+        synth_run_id="16487",  # Synthetic run ID
+        overlay_root="/tmp/test/",  # Overlay root directory
+        boxsize=(48, 48, 48),  # Size of the subvolumes
+        augment=True,  # Enable basic augmentations
+        cache_dir="./cache",  # Cache directory
+        cache_format="parquet",  # Cache format
+        voxel_spacing=10.012,  # Voxel spacing (use the exact spacing for best results)
+        include_background=True,  # Include background samples
+        background_ratio=0.2,  # Background ratio
+        min_background_distance=48,  # Minimum distance from particles for background
+        blend_sigma=2.0,  # Controls the standard deviation of Gaussian blending at boundaries
+        mixup_alpha=0.2,  # Alpha parameter for mixup
+        max_samples=100,  # Maximum number of samples to generate
     )
 
     # Print dataset information
     print(f"Dataset size: {len(dataset)}")
     print(f"Classes: {dataset.keys()}")
-    
+
     # Show class distribution
     distribution = dataset.get_class_distribution()
     print("\nClass Distribution:")
@@ -50,13 +53,9 @@ def main():
 
     # Use class weights for balanced sampling
     sample_weights = dataset.get_sample_weights()
-    
+
     # Create a weighted sampler for balanced sampling
-    sampler = WeightedRandomSampler(
-        weights=sample_weights,
-        num_samples=len(dataset),
-        replacement=True
-    )
+    sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(dataset), replacement=True)
 
     # Create data loader with balanced sampling
     batch_size = 8
@@ -64,7 +63,7 @@ def main():
         dataset,
         batch_size=batch_size,
         sampler=sampler,
-        num_workers=0  # Use single process data loading to avoid pickling issues
+        num_workers=0,  # Use single process data loading to avoid pickling issues
     )
 
     # Try to load a single batch for visualization
@@ -89,11 +88,12 @@ def main():
         except Exception as e2:
             print(f"Error extracting single item: {str(e2)}")
 
+
 def visualize_batch(inputs, labels, class_names):
     """Visualize a batch of 3D subvolumes with Gaussian blur for better visualization."""
     # Import needed for Gaussian filter
     from scipy.ndimage import gaussian_filter
-    
+
     # Convert class indices to class names
     label_names = []
     for l in labels.numpy():
@@ -103,49 +103,50 @@ def visualize_batch(inputs, labels, class_names):
             label_names.append(class_names[l])
         else:
             label_names.append(f"unknown_{l}")
-    
+
     # Create visualization
     batch_size = inputs.shape[0]
-    fig, axes = plt.subplots(3, 4, figsize=(16, 12)) # 3 rows for XY, YZ, XZ planes
-    
+    fig, axes = plt.subplots(3, 4, figsize=(16, 12))  # 3 rows for XY, YZ, XZ planes
+
     for i in range(min(batch_size, 4)):
         # Get central slices along each axis
         voldata = inputs[i, 0].numpy()
-        
+
         # Apply Gaussian blur for visualization purposes
         vis_data = gaussian_filter(voldata, sigma=0.7)
-        
+
         slice_z = vis_data.shape[0] // 2
         slice_y = vis_data.shape[1] // 2
         slice_x = vis_data.shape[2] // 2
-        
+
         # Display XY plane (Z slice) with Gaussian blur
         xy_slice = vis_data[slice_z, :, :]
-        axes[0, i].imshow(xy_slice, cmap='gray')
+        axes[0, i].imshow(xy_slice, cmap="gray")
         axes[0, i].set_title(f"Class: {label_names[i]}\nXY Plane (Z={slice_z})")
-        axes[0, i].axis('off')
-        
+        axes[0, i].axis("off")
+
         # Display YZ plane (X slice) with Gaussian blur
         yz_slice = vis_data[:, :, slice_x]
-        axes[1, i].imshow(yz_slice, cmap='gray')
+        axes[1, i].imshow(yz_slice, cmap="gray")
         axes[1, i].set_title(f"YZ Plane (X={slice_x})")
-        axes[1, i].axis('off')
-        
+        axes[1, i].axis("off")
+
         # Display XZ plane (Y slice) with Gaussian blur
         xz_slice = vis_data[:, slice_y, :]
-        axes[2, i].imshow(xz_slice, cmap='gray')
+        axes[2, i].imshow(xz_slice, cmap="gray")
         axes[2, i].set_title(f"XZ Plane (Y={slice_y})")
-        axes[2, i].axis('off')
-    
+        axes[2, i].axis("off")
+
     plt.tight_layout()
     plt.savefig("spliced_mixup_visualization.png")
     plt.show()
-    
-    print(f"Visualization saved to spliced_mixup_visualization.png")
+
+    print("Visualization saved to spliced_mixup_visualization.png")
+
 
 if __name__ == "__main__":
     # This is required for multiprocessing on macOS
     multiprocessing.freeze_support()
-    
+
     # Run the example
     main()

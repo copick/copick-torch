@@ -30,7 +30,7 @@ The dataset used in this example is created using the `SimpleCopickDataset` clas
 ```python
 dataset = SimpleCopickDataset(
     dataset_id=10440,          # Experimental dataset ID
-    overlay_root='/tmp/test/', # Overlay root directory  
+    overlay_root='/tmp/test/', # Overlay root directory
     boxsize=(48, 48, 48),      # Size of the subvolumes
     augment=False,             # Disable augmentations for examples
     cache_dir='./cache',       # Cache directory
