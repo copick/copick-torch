@@ -12,6 +12,7 @@ dependencies = [
     "dask",
     "einops",
     "h5py",
+    "copick-utils",
     "numpy<2",
     "rich",
     "scikit-image",
@@ -36,6 +37,7 @@ test = [
 ]
 
 [project.scripts]
+copick-torch = "copick_torch.cli:cli"
 coverage-report = "scripts.coverage_report:main"
 
 [tool.hatch.metadata]
@@ -46,3 +48,4 @@ dependencies = ["pytest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
