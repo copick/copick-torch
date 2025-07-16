@@ -83,7 +83,7 @@ def membrain_segment(
     input_is_numpy = isinstance(data, np.ndarray)
 
     # Load the trained PyTorch Lightning model
-    model_checkpoint = pretrained_weights.get_membrain_checkpoint()
+    model_checkpoint = get_membrain_checkpoint()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initialize the model and load trained weights from checkpoint
