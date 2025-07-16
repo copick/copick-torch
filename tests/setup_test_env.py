@@ -6,15 +6,17 @@ This script is optional and only needed if you want to generate mock data
 for testing without requiring real data.
 """
 
-import os
 import json
-import numpy as np
+import os
 from pathlib import Path
+
+import numpy as np
+
 
 def setup_test_env():
     """
     Create a minimal test environment for running tests.
-    
+
     This includes:
     1. A mock config file
     2. A directory structure for mock data
@@ -22,11 +24,11 @@ def setup_test_env():
     # Create test directory
     test_dir = Path(__file__).parent / "test_data"
     test_dir.mkdir(exist_ok=True)
-    
+
     # Create overlay directory
     overlay_dir = test_dir / "overlay"
     overlay_dir.mkdir(exist_ok=True)
-    
+
     # Create a mock config file
     config = {
         "config_type": "local",
@@ -40,7 +42,7 @@ def setup_test_env():
                 "is_particle": True,
                 "label": 1,
                 "color": [0, 117, 220, 128],
-                "radius": 30
+                "radius": 30,
             },
             {
                 "name": "test_object_2",
@@ -48,22 +50,21 @@ def setup_test_env():
                 "is_particle": True,
                 "label": 2,
                 "color": [153, 63, 0, 128],
-                "radius": 40
-            }
+                "radius": 40,
+            },
         ],
         "overlay_root": str(overlay_dir),
-        "overlay_fs_args": {
-            "auto_mkdir": True
-        }
+        "overlay_fs_args": {"auto_mkdir": True},
     }
-    
+
     config_path = test_dir / "test_config.json"
-    with open(config_path, 'w') as f:
+    with open(config_path, "w") as f:
         json.dump(config, f, indent=2)
-    
+
     print(f"Created test environment at {test_dir}")
-    print(f"Set environment variable to use in tests:")
+    print("Set environment variable to use in tests:")
     print(f"export COPICK_TEST_CONFIG={config_path}")
+
 
 if __name__ == "__main__":
     setup_test_env()
