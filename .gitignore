@@ -164,7 +164,7 @@ dmypy.json
 cython_debug/
 
 # Ignore Downloaded SAM2 Weights
-saber/checkpoints/*
+copick_torch/checkpoints/*
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

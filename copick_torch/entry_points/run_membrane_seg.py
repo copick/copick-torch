@@ -1,11 +1,5 @@
 import click
 
-@click.group(name="membrane-seg")
-@click.pass_context
-def cli(ctx):
-    """Segment membranes in tomograms."""
-    pass
-
 def segment_commands(func):
     """Decorator to add common options to a Click command."""
     options = [
@@ -24,9 +18,11 @@ def segment_commands(func):
         func = option(func)
     return func
 
-@cli.command(context_settings={'show_default': True})
+@click.command(context_settings={'show_default': True})
 @segment_commands
+@click.pass_context
 def membrain_seg(
+    ctx: click.Context,
     config: str,
     tomo_alg: str,
     voxel_size: float,
@@ -38,7 +34,9 @@ def membrain_seg(
     import copick
 
     print("Starting Membrane Segmentation...")
-    print(f"Using Voxel Size: {voxel_size}, Session ID: {session_id}, Threshold: {threshold}")
+    print(f"Using Tomograms with Voxel Size: {voxel_size} and Algorithm: {tomo_alg}")
+    print(f'Saving Segmentations with membrain-seg_{session_id}_membranes Query')
+    print(f'Segmentation Threshold: {threshold}\n')
 
     # Read Copick Project and Get Runs
     root = copick.from_file(config)
@@ -54,7 +52,7 @@ def membrain_seg(
     # If not, download it
 
     tasks = [
-        (run, tomo_alg, voxel_size, voxel_size, session_id, threshold)
+        (run, tomo_alg, voxel_size, session_id, threshold)
         for run in root.runs
     ]
     
@@ -71,6 +69,7 @@ def membrain_seg(
     print('Completed the Membrane Segmentation!')
 
 def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, gpu_id, models):
+    from copick_torch.inference import membrain_seg    
     from copick_utils.io import readers, writers
 
     # Default Sliding Window Parameters
@@ -82,7 +81,7 @@ def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, gpu_id, mode
 
     # Segment the Tomogram
     predictions = membrain_seg.membrain_segment(
-        data,
+        data, models,
         sw_batch_size=sw_batch_size,
         sw_window_size=sw_window_size,
         test_time_augmentation=True,

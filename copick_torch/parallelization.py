@@ -85,7 +85,7 @@ class GPUPool:
                 
         self.initialized.set()
         if self.verbose:
-            print("All shared models ready!")
+            print("All shared models ready!\n")
     
     def _execute_threading(self, func, tasks, task_ids, progress_desc):
         """Execute using threading approach"""

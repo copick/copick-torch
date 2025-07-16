@@ -1,13 +1,28 @@
 import click
 
-@click.group(name="downsample")
-@click.pass_context
-def cli(ctx):
-    """Downsample tomograms to a target resolution."""
-    pass
+def downsample_commands(func):
+    """Decorator to add common options to a Click command."""
+    options = [
+        click.option("--config", type=str, required=True, 
+                    help="Path to Copick Config for Processing Data"),
+        click.option("--tomo-alg", type=str, required=True, 
+                    help="Tomogram Algorithm to use"),
+        click.option("--voxel-size", type=float, required=False, default=10, 
+                    help="Voxel Size to Query the Data"),
+        click.option("--target-resolution", type=float, required=False, default=10, 
+                    help="Target Resolution to Downsample to"),
+        click.option("--delete-source", type=bool, required=False, default=False, 
+                    help="Delete the source tomograms after downsampling"),
+    ]
+    for option in reversed(options):  # Add options in reverse order to preserve correct order
+        func = option(func)
+    return func
 
-@cli.command(context_settings={'show_default': True})
+@click.command(context_settings={'show_default': True})
+@downsample_commands
+@click.pass_context
 def downsample(
+    ctx: click.Context,
     config: str,
     tomo_alg: str,
     voxel_size: float,
@@ -24,7 +39,6 @@ def downsample(
     pool = parallelization.GPUPool(
         init_fn=downsample.downsample_init,
         init_args=(voxel_size, target_resolution),
-        approach="threading",
         verbose=True
     )
 
@@ -52,13 +66,13 @@ def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source,
     downsampler = models
 
     # Get the Tomogram
-    tomo = readers.tomogram(run, tomo_alg, voxel_size)
+    tomo = readers.tomogram(run, voxel_size, tomo_alg)
 
     # Downsample the Tomogram
     downsampled_tomo = downsampler.run(tomo)
 
     # Save the Downsampled Tomogram
-    writers.tomogram(run, downsampled_tomo, target_resolution)
+    writers.tomogram(run, downsampled_tomo, target_resolution, tomo_alg)
 
     # Delete the source tomograms if requested
     if delete_source:

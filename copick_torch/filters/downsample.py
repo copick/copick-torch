@@ -54,7 +54,7 @@ class FourierRescale3D:
             output = self.single_rescale(volume)
         
         # Return to CPU if Compute is on GPU
-        if self.device == torch.device('cuda'):
+        if self.device != torch.device('cpu'):
             output = output.cpu()
             torch.cuda.empty_cache()
 

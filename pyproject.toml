@@ -13,7 +13,7 @@ dependencies = [
     "einops",
     "h5py",
     "copick-utils",
-    "numpy<2",
+    "numpy",
     "rich",
     "scikit-image",
     "scipy",
@@ -42,13 +42,16 @@ test = [
 coverage-report = "scripts.coverage_report:main"
 
 [project.entry-points."copick.process.commands"]
-downsample = "copick_torch.entry_points.run_downsample.downsample"
+downsample = "copick_torch.entry_points.run_downsample:downsample"
 
 [project.entry-points."copick.inference.commands"]
-membrain-seg = "copick_torch.entry_points.run_membrane_seg.cli"
+membrain-seg = "copick_torch.entry_points.run_membrane_seg:membrain_seg"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+dependency-overrides = [
+    "numpy>=2"  # or whatever version you need
+]
 
 [tool.hatch.envs.default]
 dependencies = ["pytest"]

@@ -1,6 +1,6 @@
 from monai.inferers import SlidingWindowInferer
+import torch, os, gdown, copick_torch
 import numpy as np
-import torch, os
 
 from membrain_seg.segmentation.networks.inference_unet import (
     PreprocessedSemanticSegmentationUnet,
@@ -47,6 +47,7 @@ def membrain_preprocess(
 
 def membrain_segment(
     data,
+    pl_model,
     sw_batch_size=4,
     sw_window_size=160,
     test_time_augmentation=True,
@@ -82,15 +83,8 @@ def membrain_segment(
     # Check input data type for return type matching
     input_is_numpy = isinstance(data, np.ndarray)
 
-    # Load the trained PyTorch Lightning model
-    model_checkpoint = get_membrain_checkpoint()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Initialize the model and load trained weights from checkpoint
-    pl_model = PreprocessedSemanticSegmentationUnet.load_from_checkpoint(
-        model_checkpoint, map_location=device, strict=False
-    )
-    pl_model.to(device)
+    # Get Model Device
+    device = pl_model.device
     
     if sw_window_size % 32 != 0:
         raise OSError("Sliding window size must be multiple of 32!")
@@ -113,15 +107,13 @@ def membrain_segment(
         roi_size,
         sw_batch_size, 
         overlap=0.5,
-        progress=True,
+        progress=False,
         mode="gaussian",
         device=torch.device("cpu"),
     )
 
     # Perform test time augmentation (8-fold mirroring)
     predictions = torch.zeros_like(new_data)
-    if test_time_augmentation:
-        print("Performing 8-fold test-time augmentation.")
     
     for m in range(8 if test_time_augmentation else 1):
         with torch.no_grad():
@@ -174,7 +166,6 @@ def download_model_weights():
     """
     Downloads the MemBrain checkpoint either wget or curl.
     """
-    import gdown, copick_torch
     
     download_dir = os.path.join(os.path.dirname(copick_torch.__file__), 'checkpoints')
     os.makedirs(download_dir, exist_ok=True)
@@ -192,9 +183,9 @@ def get_membrain_checkpoint():
     """
     Get the MemBrain checkpoint.
     """
-    import copick_torch
-    try:
-        return os.path.join(os.path.dirname(copick_torch.__file__), 'checkpoints', 'membrain_seg_v10.ckpt')
-    except:
+    checkpoint_path = os.path.join(os.path.dirname(copick_torch.__file__), 'checkpoints', 'membrain_seg_v10.ckpt')
+    if os.path.exists(checkpoint_path):
+        return checkpoint_path
+    else:   
         download_model_weights()
-        return os.path.join(os.path.dirname(copick_torch.__file__), 'checkpoints', 'membrain_seg_v10.ckpt')
+        return checkpoint_path
