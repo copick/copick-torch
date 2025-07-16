@@ -171,7 +171,7 @@ def collect_examples_from_dataset(dataset, include_background=True):
 def main():
     """Main function to generate the documentation."""
     # Set up logging
-    setup_logging(level=logging.INFO)
+    setup_logging()
 
     # Create output directories
     simple_output_dir = Path("docs/simple_dataset_examples")

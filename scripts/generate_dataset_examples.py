@@ -193,7 +193,7 @@ def main():
     start_time = time.time()
 
     # Set up logging
-    setup_logging(level=logging.INFO)
+    setup_logging()
 
     # Create output directory
     output_dir = Path("docs/dataset_examples")
