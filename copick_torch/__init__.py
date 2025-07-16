@@ -1,4 +1,5 @@
-from copick_torch._version import __version__
+__version__ = "0.2.0"
+
 from copick_torch.augmentations import FourierAugment3D, MixupTransform
 from copick_torch.copick import CopickDataset
 from copick_torch.dataset import SimpleCopickDataset, SimpleDatasetMixin, SplicedMixupDataset
@@ -16,5 +17,4 @@ __all__ = [
     "FourierAugment3D",
     "ClassBalancedSampler",
     "setup_logging",
-    "__version__",
 ]
