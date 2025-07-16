@@ -30,7 +30,10 @@ dependencies = [
     "numpy",
     "scipy",
     "copick>=1.8.2",
-    "pandas"
+    "pandas",
+    "zarr",
+    "scikit-image",
+    "scipy",
 ]
 authors = [
     { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" },
