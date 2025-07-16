@@ -16,32 +16,23 @@ from tqdm import tqdm
 
 class GPUPool:
     """
-    Flexible GPU processing pool supporting both threading and multiprocessing.
-    
-    Usage:
-        # Fast threading approach (shared models)
-        pool = GPUPool(n_gpus=4, approach="threading")
-        
-        # Robust multiprocessing approach (isolated models)  
-        pool = GPUPool(n_gpus=4, approach="multiprocessing")
-        
-        # Auto-choose based on model size
-        pool = GPUPool(n_gpus=4, approach="auto", model_size_gb=20)
+    Flexible GPU processing pool for parallel model inference.
     """
     
     def __init__(self, 
                  init_fn: Optional[Callable] = None,
                  init_args: tuple = (),
                  init_kwargs: dict = {},
+                 n_gpus: int = None,
                  verbose: bool = True):
         
-        self.n_gpus = torch.cuda.device_count()
+        self.n_gpus = n_gpus if n_gpus is not None else torch.cuda.device_count()
         self.init_fn = init_fn
         self.init_args = init_args
         self.init_kwargs = init_kwargs
         self.verbose = verbose
         
-        # Spawn Threadding Pool
+        # Spawn Threading Pool
         self._init_threading()
     
     # ============================================================================
@@ -251,38 +242,3 @@ class GPUPool:
             if self.verbose:
                 print("All workers shut down")
     
-# ============================================================================
-# CONVENIENCE FUNCTIONS
-# ============================================================================
-
-def gpu_map(func: Callable, 
-            tasks: List[Any],
-            approach: str = "auto",
-            model_size_gb: float = 1.0,
-            n_gpus: Optional[int] = None,
-            init_fn: Optional[Callable] = None,
-            init_args: tuple = (),
-            init_kwargs: dict = {},
-            verbose: bool = True) -> List[Dict]:
-    """
-    Convenience function for GPU mapping with automatic approach selection.
-    
-    Example:
-        # Let it auto-choose based on model size
-        results = gpu_map(my_function, tasks, model_size_gb=20)  # Uses multiprocessing
-        
-        # Force threading for speed
-        results = gpu_map(my_function, tasks, approach="threading")
-    """
-    with GPUPool(n_gpus, approach, init_fn, init_args, init_kwargs, model_size_gb, verbose) as pool:
-        return pool.execute(func, tasks)
-
-if __name__ == "__main__":
-    print("Flexible GPU Processing Pool")
-    print("=" * 40)
-    print("Supports both threading (fast) and multiprocessing (robust) approaches")
-    
-    if torch.cuda.is_available():
-        print(f"Found {torch.cuda.device_count()} CUDA GPUs")
-    else:
-        print("No CUDA GPUs available")
