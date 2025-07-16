@@ -73,7 +73,7 @@ test = [
 coverage-report = "scripts.coverage_report:main"
 
 [tool.hatch.version]
-path = "copick_torch/_version.py"
+path = "copick_torch/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
