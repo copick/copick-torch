@@ -37,8 +37,8 @@ dependencies = [
     "matplotlib",
 ]
 authors = [
-    { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" },
     {name = "Kyle Harrington", email = "czi@kyleharrington.com"},
+    { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" },
 ]
 description = "Torch utilities for copick"
 readme = "README.md"
