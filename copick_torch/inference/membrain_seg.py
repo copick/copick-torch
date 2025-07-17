@@ -1,47 +1,50 @@
-from monai.inferers import SlidingWindowInferer
-import torch, os, gdown, copick_torch
-import numpy as np
+import os
 
+import gdown
+import numpy as np
+import torch
+from membrain_seg.segmentation.dataloading.memseg_augmentation import get_mirrored_img, get_prediction_transforms
 from membrain_seg.segmentation.networks.inference_unet import (
     PreprocessedSemanticSegmentationUnet,
 )
-from membrain_seg.segmentation.dataloading.memseg_augmentation import (
-    get_mirrored_img, get_prediction_transforms
-)
+from monai.inferers import SlidingWindowInferer
+
+import copick_torch
+
 
 def membrain_preprocess(
-    data, 
-    transforms, 
-    device, 
-    normalize_data=True
+    data,
+    transforms,
+    device,
+    normalize_data=True,
 ):
     """
     Preprocess tomogram data from numpy array or PyTorch tensor for inference.
-    
+
     Adapted from load_data_for_inference in membrain-seg repository.
     """
     # Convert torch tensor to numpy if needed
     if isinstance(data, torch.Tensor):
         data = data.detach().cpu().numpy()
-    
+
     # Normalize data if requested
     if normalize_data:
         mean_val = np.mean(data)
         std_val = np.std(data)
         data = (data - mean_val) / std_val
-    
+
     # Add channel dimension (C, H, W, D)
     new_data = np.expand_dims(data, 0)
-    
+
     # Apply transforms
     new_data = transforms(new_data)
-    
+
     # Add batch dimension
     new_data = new_data.unsqueeze(0)
-    
+
     # Move to device
     new_data = new_data.to(device)
-    
+
     return new_data
 
 
@@ -53,10 +56,10 @@ def membrain_segment(
     test_time_augmentation=True,
     normalize_data=True,
     segmentation_threshold=0.0,
-    ):
+):
     """
     Segment tomograms using the membrain-seg trained model from in-memory data.
-    
+
     This function is heavily adapted from the segment() function in the membrain-seg
     repository, modified to work with in-memory numpy arrays or PyTorch tensors
     instead of file paths.
@@ -85,7 +88,7 @@ def membrain_segment(
 
     # Get Model Device
     device = pl_model.device
-    
+
     if sw_window_size % 32 != 0:
         raise OSError("Sliding window size must be multiple of 32!")
     pl_model.target_shape = (sw_window_size, sw_window_size, sw_window_size)
@@ -93,8 +96,10 @@ def membrain_segment(
     # Preprocess the data
     transforms = get_prediction_transforms()
     new_data = membrain_preprocess(
-        data, transforms, device=torch.device("cpu"), 
-        normalize_data=normalize_data
+        data,
+        transforms,
+        device=torch.device("cpu"),
+        normalize_data=normalize_data,
     )
     new_data = new_data.to(torch.float32)
 
@@ -105,7 +110,7 @@ def membrain_segment(
     roi_size = (sw_window_size, sw_window_size, sw_window_size)
     inferer = SlidingWindowInferer(
         roi_size,
-        sw_batch_size, 
+        sw_batch_size,
         overlap=0.5,
         progress=False,
         mode="gaussian",
@@ -114,17 +119,16 @@ def membrain_segment(
 
     # Perform test time augmentation (8-fold mirroring)
     predictions = torch.zeros_like(new_data)
-    
+
     for m in range(8 if test_time_augmentation else 1):
-        with torch.no_grad():
-            with torch.cuda.amp.autocast():
-                mirrored_input = get_mirrored_img(new_data.clone(), m).to(device)
-                mirrored_pred = inferer(mirrored_input, pl_model)
-                if not (isinstance(mirrored_pred, list) or isinstance(mirrored_pred, tuple)):
-                    mirrored_pred = [mirrored_pred]
-                correct_pred = get_mirrored_img(mirrored_pred[0], m)
-                predictions += correct_pred.detach().cpu()
-    
+        with torch.no_grad(), torch.cuda.amp.autocast():
+            mirrored_input = get_mirrored_img(new_data.clone(), m).to(device)
+            mirrored_pred = inferer(mirrored_input, pl_model)
+            if not (isinstance(mirrored_pred, (list, tuple))):
+                mirrored_pred = [mirrored_pred]
+            correct_pred = get_mirrored_img(mirrored_pred[0], m)
+            predictions += correct_pred.detach().cpu()
+
     if test_time_augmentation:
         predictions /= 8.0
 
@@ -141,7 +145,8 @@ def membrain_segment(
     else:
         return predictions
 
-def membrane_seg_init(gpu_id:int):
+
+def membrane_seg_init(gpu_id: int):
     """
     Initialize the MemBrain segmentation model.
 
@@ -153,7 +158,9 @@ def membrane_seg_init(gpu_id:int):
 
     # Initialize the model and load trained weights from checkpoint
     pl_model = PreprocessedSemanticSegmentationUnet.load_from_checkpoint(
-        model_checkpoint, map_location=device, strict=False
+        model_checkpoint,
+        map_location=device,
+        strict=False,
     )
     pl_model.to(device)
 
@@ -162,12 +169,13 @@ def membrane_seg_init(gpu_id:int):
 
     return pl_model
 
+
 def download_model_weights():
     """
     Downloads the MemBrain checkpoint either wget or curl.
     """
-    
-    download_dir = os.path.join(os.path.dirname(copick_torch.__file__), 'checkpoints')
+
+    download_dir = os.path.join(os.path.dirname(copick_torch.__file__), "checkpoints")
     os.makedirs(download_dir, exist_ok=True)
 
     # Correct file ID
@@ -179,13 +187,14 @@ def download_model_weights():
     gdown.download(url, output_path, quiet=False)
     print("Download complete.")
 
+
 def get_membrain_checkpoint():
     """
     Get the MemBrain checkpoint.
     """
-    checkpoint_path = os.path.join(os.path.dirname(copick_torch.__file__), 'checkpoints', 'membrain_seg_v10.ckpt')
+    checkpoint_path = os.path.join(os.path.dirname(copick_torch.__file__), "checkpoints", "membrain_seg_v10.ckpt")
     if os.path.exists(checkpoint_path):
         return checkpoint_path
-    else:   
+    else:
         download_model_weights()
         return checkpoint_path
