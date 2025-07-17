@@ -59,7 +59,7 @@
             "name": "virus-like-particle",
             "go_id": "GO:0170047",
             "is_particle": true,
-            "pdb_id": "6N4V",            
+            "pdb_id": "6N4V",
             "label": 6,
             "color": [255, 204, 153, 128],
             "radius": 135,

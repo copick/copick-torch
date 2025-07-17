@@ -1,26 +1,42 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "copick-torch"
-version = "0.0.1"
-description = "Copick Torch Integration"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+dynamic = ["version"]
 dependencies = [
     "torch",
     "monai",
     "dask",
     "einops",
-    "h5py",
-    "copick-utils",
     "numpy",
-    "rich",
+    "copick-utils",
     "scikit-image",
     "scipy",
+    "copick>=1.8.2",
+    "zarr",
     "mrcfile",
     "gdown",
     "membrain-seg",
-    "copick>=1.0.1",
     "numcodecs<0.16.0",
     "pandas>=2.2.3",
     "matplotlib>=3.10.1",
@@ -28,14 +44,40 @@ dependencies = [
     "pytest>=8.3.5",
     "scikit-learn>=1.6.1",
     "torchvision>=0.21.0",
+]
+authors = [
+    {name = "Kyle Harrington", email = "czi@kyleharrington.com"},
+    { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" },
+]
+description = "Torch utilities for copick"
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["copick", "cryoet", "cryo-et", "tomography", "annotation", "torch", "pytorch"]
+
+[project.urls]
+Repository = "https://github.com/copick/copick-torch"
+Issues = "https://github.com/copick/copick-torch/issues"
+Documentation = "https://github.com/copick/copick-torch#README.md"
+"Bug Tracker" = "https://github.com/copick/copick-torch/issues"
+"Source Code" = "https://github.com/copick/copick-torch"
+"User Support" = "https://github.com/copick/copick-torch/issues"
+
+[project.optional-dependencies]
+dev = [
+    "black>=25.1.0",
+    "hatchling>=1.25.0",
+    "hatch-vcs>=0.4.0",
+    "pre-commit>=4.2.0",
+    "ruff>=0.12.0",
     "ipykernel>=6.29.5",
     "jupyter>=1.1.1",
 ]
-
-[project.optional-dependencies]
 test = [
+    "tox",
+    "tox-gh-actions",
+    "tox-uv",
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
 ]
 
 [project.scripts]
@@ -46,6 +88,9 @@ downsample = "copick_torch.entry_points.run_downsample:downsample"
 
 [project.entry-points."copick.inference.commands"]
 membrain-seg = "copick_torch.entry_points.run_membrane_seg:membrain_seg"
+
+[tool.hatch.version]
+path = "copick_torch/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -59,3 +104,72 @@ dependencies = ["pytest"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.black]
+line-length = 120
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "B",       # bugbear
+    "I",       # isort
+    "N",       # pep8-naming
+    "ASYNC",   # async
+    "COM",     # commas
+    "C4",      # comprehensions
+    "DTZ",     # datetimez
+    "ISC",     # implicit-str-concat
+    "G",       # logging-format
+    "T20",     # print
+    "SIM",     # simplify
+]
+ignore = [
+    "G004",   # logging format
+    "W293",   # blank line contains whitespace
+    "B007",   # loop variable not used
+    "B008",   # Do not perform calls in argument defaults
+    "B905",   # `zip()` without an explicit `strict=` parameter
+    "E741",   # ambiguous variable name
+    "F401",   # module imported but unused
+    "N802",   # Function name should be lowercase
+    "N805",   # First argument of a method should be named `self`
+    "N806",   # Variable in function should be lowercase
+    "N812",   # lowercase function imported as uppercase
+    "N817",   # camelcase imported as uppercase
+    "N999",   # Invalid module name
+    "E501",   # line too long
+    "C408",   # rewrite empty built-ins as literals
+    "SIM102", # Simplify boolean expressions with `and` and `or`.
+    "SIM108", # Simplify boolean expressions.
+    "SIM118", # Use `key in dict` instead of `key in dict.keys()`
+    "T201",   # print statements.
+    "DTZ007", # Datetime objects without timezones.
+    "DTZ005", # More datetimes without timezones.
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["copick_torch"]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.coverage.run]
+source_pkgs = ["copick_torch", "tests"]
+branch = true
+parallel = true
+
+[tool.coverage.paths]
+copick_torch = ["copick_torch", "*/copick-torch/copick_torch"]
+tests = ["tests", "*/copick-torch/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
