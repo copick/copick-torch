@@ -39,7 +39,7 @@ dependencies = [
     "membrain-seg",
     "numcodecs<0.16.0",
     "pandas>=2.2.3",
-    "matplotlib>=3.10.1",
+    "matplotlib",
     "pyarrow>=19.0.1",
     "pytest>=8.3.5",
     "scikit-learn>=1.6.1",
