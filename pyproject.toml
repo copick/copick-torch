@@ -26,15 +26,24 @@ dynamic = ["version"]
 dependencies = [
     "torch",
     "monai",
+    "dask",
     "einops",
     "numpy",
-    "scipy",
-    "copick>=1.8.2",
-    "pandas",
-    "zarr",
+    "copick-utils",
     "scikit-image",
     "scipy",
+    "copick>=1.8.2",
+    "zarr",
+    "mrcfile",
+    "gdown",
+    "membrain-seg",
+    "numcodecs<0.16.0",
+    "pandas>=2.2.3",
     "matplotlib",
+    "pyarrow>=19.0.1",
+    "pytest>=8.3.5",
+    "scikit-learn>=1.6.1",
+    "torchvision>=0.21.0",
 ]
 authors = [
     {name = "Kyle Harrington", email = "czi@kyleharrington.com"},
@@ -60,6 +69,8 @@ dev = [
     "hatch-vcs>=0.4.0",
     "pre-commit>=4.2.0",
     "ruff>=0.12.0",
+    "ipykernel>=6.29.5",
+    "jupyter>=1.1.1",
 ]
 test = [
     "tox",
@@ -72,11 +83,20 @@ test = [
 [project.scripts]
 coverage-report = "scripts.coverage_report:main"
 
+[project.entry-points."copick.process.commands"]
+downsample = "copick_torch.entry_points.run_downsample:downsample"
+
+[project.entry-points."copick.inference.commands"]
+membrain-seg = "copick_torch.entry_points.run_membrane_seg:membrain_seg"
+
 [tool.hatch.version]
 path = "copick_torch/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+dependency-overrides = [
+    "numpy>=2"  # or whatever version you need
+]
 
 [tool.hatch.envs.default]
 dependencies = ["pytest"]
