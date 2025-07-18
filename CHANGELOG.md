@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/copick/copick-torch/compare/copick-torch-v0.2.1...copick-torch-v0.3.0) (2025-07-18)
+
+
+### ✨ Features
+
+* Adding downsampling and membrain-seg CLI commands ([#55](https://github.com/copick/copick-torch/issues/55)) ([b9a0571](https://github.com/copick/copick-torch/commit/b9a0571c38b960ab62496846e2273ee96f1d0a12))
+
 ## [0.2.1](https://github.com/copick/copick-torch/compare/copick-torch-v0.2.0...copick-torch-v0.2.1) (2025-07-16)
 
 
