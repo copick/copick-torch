@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/copick/copick-torch/compare/copick-torch-v0.2.1...copick-torch-v0.3.0) (2025-08-07)
+
+
+### ✨ Features
+
+* Adding downsampling and membrain-seg CLI commands ([#55](https://github.com/copick/copick-torch/issues/55)) ([b9a0571](https://github.com/copick/copick-torch/commit/b9a0571c38b960ab62496846e2273ee96f1d0a12))
+
+
+### 🐞 Bug Fixes
+
+* bump chanzuckerberg/github-actions from 6.4.0 to 6.5.0 ([#67](https://github.com/copick/copick-torch/issues/67)) ([e0a60f0](https://github.com/copick/copick-torch/commit/e0a60f04a22bda9b913ed75a86a28ecd41c5d8f4))
+* bump codecov/codecov-action from 3 to 5 ([#59](https://github.com/copick/copick-torch/issues/59)) ([f7bc042](https://github.com/copick/copick-torch/commit/f7bc0427073c2acbd168be93d637b002f34f2fbe))
+
 ## [0.2.1](https://github.com/copick/copick-torch/compare/copick-torch-v0.2.0...copick-torch-v0.2.1) (2025-07-16)
 
 
