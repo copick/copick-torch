@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from copick_torch import SplicedMixupDataset
+from copick_torch.dataset import SplicedMixupDataset
 
 
 class TestSplicedMixupDataset(unittest.TestCase):

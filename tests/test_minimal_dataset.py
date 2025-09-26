@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import torch
 
-from copick_torch import MinimalCopickDataset
+from copick_torch.minimal_dataset import MinimalCopickDataset
 
 
 class TestMinimalCopickDataset(unittest.TestCase):

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from copick_torch import SimpleCopickDataset
+from copick_torch.dataset import SimpleCopickDataset
 
 
 class TestDatasetExtraction(unittest.TestCase):
