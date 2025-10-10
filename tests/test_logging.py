@@ -1,7 +1,7 @@
 import logging
 import unittest
 
-from copick_torch import setup_logging
+from copick_torch.logging import setup_logging
 
 
 class TestLogging(unittest.TestCase):

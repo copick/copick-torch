@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 
-from copick_torch import SimpleCopickDataset
+from copick_torch.dataset import SimpleCopickDataset
 
 
 class TestDatasetCaching(unittest.TestCase):

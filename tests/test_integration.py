@@ -5,7 +5,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from copick_torch import CopickDataset
+from copick_torch.copick import CopickDataset
 
 # This test requires actual data
 # Skip it if the test config file is not available

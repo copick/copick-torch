@@ -4,7 +4,7 @@ from collections import Counter
 import numpy as np
 import torch
 
-from copick_torch import ClassBalancedSampler
+from copick_torch.samplers import ClassBalancedSampler
 
 
 class TestClassBalancedSampler(unittest.TestCase):

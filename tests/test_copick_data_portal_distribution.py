@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import copick
 import numpy as np
 
-from copick_torch import SimpleCopickDataset
+from copick_torch.dataset import SimpleCopickDataset
 
 
 class TestCopickDataPortalDistribution(unittest.TestCase):

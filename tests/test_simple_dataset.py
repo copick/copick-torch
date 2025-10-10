@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import torch
 
-from copick_torch import SimpleCopickDataset, SimpleDatasetMixin
+from copick_torch.dataset import SimpleCopickDataset, SimpleDatasetMixin
 
 
 class TestSimpleDatasetMixin(unittest.TestCase):
