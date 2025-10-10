@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.0](https://github.com/copick/copick-torch/compare/copick-torch-v0.2.1...copick-torch-v1.0.0) (2025-10-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove root-level imports for CLI speed. ([#73](https://github.com/copick/copick-torch/issues/73))
+
+### ✨ Features
+
+* Adding downsampling and membrain-seg CLI commands ([#55](https://github.com/copick/copick-torch/issues/55)) ([b9a0571](https://github.com/copick/copick-torch/commit/b9a0571c38b960ab62496846e2273ee96f1d0a12))
+
+
+### 🐞 Bug Fixes
+
+* bump actions/checkout from 4 to 5 ([#68](https://github.com/copick/copick-torch/issues/68)) ([feb2cc6](https://github.com/copick/copick-torch/commit/feb2cc6b5674bd81a813e833532060572332f241))
+* bump actions/setup-python from 5 to 6 ([#70](https://github.com/copick/copick-torch/issues/70)) ([94a4003](https://github.com/copick/copick-torch/commit/94a4003cf1b27440bee5769753664618c36fd828))
+* bump chanzuckerberg/github-actions from 6.4.0 to 6.5.0 ([#67](https://github.com/copick/copick-torch/issues/67)) ([e0a60f0](https://github.com/copick/copick-torch/commit/e0a60f04a22bda9b913ed75a86a28ecd41c5d8f4))
+* bump chanzuckerberg/github-actions from 6.5.0 to 6.8.1 ([#72](https://github.com/copick/copick-torch/issues/72)) ([2fdc3bd](https://github.com/copick/copick-torch/commit/2fdc3bd143f8fbdd5cc4e156c7b24b32b453aac8))
+* bump chanzuckerberg/github-actions from 6.8.1 to 6.10.0 ([#75](https://github.com/copick/copick-torch/issues/75)) ([9edcb3e](https://github.com/copick/copick-torch/commit/9edcb3e3f7aae79e2bdcf49769bbed76bf7c11f6))
+* bump codecov/codecov-action from 3 to 5 ([#59](https://github.com/copick/copick-torch/issues/59)) ([f7bc042](https://github.com/copick/copick-torch/commit/f7bc0427073c2acbd168be93d637b002f34f2fbe))
+* remove root-level imports for CLI speed. ([#73](https://github.com/copick/copick-torch/issues/73)) ([04fecbf](https://github.com/copick/copick-torch/commit/04fecbfbcf49de141b381a583e796cd1cbbde581))
+
 ## [0.2.1](https://github.com/copick/copick-torch/compare/copick-torch-v0.2.0...copick-torch-v0.2.1) (2025-07-16)
 
 
