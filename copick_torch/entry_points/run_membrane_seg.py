@@ -112,32 +112,37 @@ def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, user_id, gpu
     # Save the Segmentation
     writers.segmentation(run, predictions, user_id, "membranes", session_id=session_id, voxel_size=voxel_size)
 
+
 def save_parameters(config, tomo_alg, voxel_size, session_id, user_id, threshold):
-    import copick, os
+    import os
+
+    import copick
+
     from copick_torch.entry_points.utils import save_parameters_yaml
-    
+
     # Determine Path to Save Parameters
     root = copick.from_file(config)
     overlay_root = root.config.overlay_root
-    if overlay_root[:8] == 'local://': overlay_root = overlay_root[8:]
+    if overlay_root[:8] == "local://":
+        overlay_root = overlay_root[8:]
     group = {
-        'input': {
-            'config': config,
-            'tomo_alg': tomo_alg,
-            'voxel_size': voxel_size,
+        "input": {
+            "config": config,
+            "tomo_alg": tomo_alg,
+            "voxel_size": voxel_size,
         },
-        'parameters': {
-            'threshold': threshold,
-            'sw_batch_size': 4,
-            'sw_window_size': 160,
+        "parameters": {
+            "threshold": threshold,
+            "sw_batch_size": 4,
+            "sw_window_size": 160,
         },
-        'output': {
-            'name': 'membranes',
-            'user-id': user_id,
-            'session_id': session_id,
-        }
+        "output": {
+            "name": "membranes",
+            "user-id": user_id,
+            "session_id": session_id,
+        },
     }
-    os.makedirs(os.path.join(overlay_root,'logs'), exist_ok=True)
-    path = os.path.join(overlay_root,'logs', f'segment-{user_id}_{session_id}_membranes.yaml')
+    os.makedirs(os.path.join(overlay_root, "logs"), exist_ok=True)
+    path = os.path.join(overlay_root, "logs", f"segment-{user_id}_{session_id}_membranes.yaml")
     save_parameters_yaml(group, path)
     print(f"📝 Saved Parameters to {path}")

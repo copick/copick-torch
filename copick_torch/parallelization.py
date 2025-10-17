@@ -239,13 +239,13 @@ class GPUPool:
         """Shutdown workers and cleanup resources"""
         if self.verbose:
             print("Cleaning up GPU resources...")
-        
+
         # Clear models and free GPU memory
         for gpu_id in range(self.n_gpus):
             if gpu_id in self.models:
                 self.models[gpu_id] = None
                 torch.cuda.set_device(gpu_id)
                 torch.cuda.empty_cache()
-        
+
         if self.verbose:
             print("Cleanup complete")
