@@ -78,6 +78,11 @@ def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source,
     # Get the Tomogram
     tomo = readers.tomogram(run, voxel_size, tomo_alg)
 
+    # Check if Tomogram Exists
+    if tomo is None:
+        print(f"⚠️  Skipping Run {run.name}: No Tomogram found for Algorithm {tomo_alg} at Voxel Size {voxel_size}A")
+        return
+
     # Downsample the Tomogram
     downsampled_tomo = downsampler.run(tomo)
 
