@@ -65,7 +65,8 @@ def downsample(
     finally:
         pool.shutdown()
 
-    print("Completed the Downsampling!")
+    save_parameters(config, tomo_alg, voxel_size, target_resolution)
+    print("✅ Completed the Downsampling!")
 
 
 def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
@@ -76,6 +77,11 @@ def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source,
 
     # Get the Tomogram
     tomo = readers.tomogram(run, voxel_size, tomo_alg)
+
+    # Check if Tomogram Exists
+    if tomo is None:
+        print(f"⚠️  Skipping Run {run.name}: No Tomogram found for Algorithm {tomo_alg} at Voxel Size {voxel_size}A")
+        return
 
     # Downsample the Tomogram
     downsampled_tomo = downsampler.run(tomo)
@@ -91,3 +97,30 @@ def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source,
         # If the Voxel Spacing is Empty, lets delete it as well
         if vs.tomograms == []:
             vs.delete()
+
+
+def save_parameters(config, tomo_alg, voxel_size, target_resolution):
+    import os
+
+    import copick
+
+    from copick_torch.entry_points.utils import save_parameters_yaml
+
+    root = copick.from_file(config)
+    overlay_root = root.config.overlay_root
+    if overlay_root[:8] == "local://":
+        overlay_root = overlay_root[8:]
+    group = {
+        "input": {
+            "config": config,
+            "tomo_alg": tomo_alg,
+            "voxel_size": voxel_size,
+        },
+        "output": {
+            "target_resolution": target_resolution,
+        },
+    }
+    os.makedirs(os.path.join(overlay_root, "logs"), exist_ok=True)
+    path = os.path.join(overlay_root, "logs", f"process-downsample_{tomo_alg}_{target_resolution}A.yaml")
+    save_parameters_yaml(group, path)
+    print(f"📝 Saved Parameters to {path}")
