@@ -1,15 +1,15 @@
+"""
+This module contains functions for creating cosine-low pass filter and applying it to tomograms.
+This is a written translation of the MATLAB code cosine_filter.m from the artia-wrapper package
+(https://github.com/uermel/artia-wrapper/tree/master)
+"""
+
 import math
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch.fft import fftn, fftshift, ifftn, ifftshift
-
-"""
-This module contains functions for creating cosine-low pass filter and applying it to tomograms.
-This is a written translation of the MATLAB code cosine_filter.m from the artia-wrapper package
-(https://github.com/uermel/artia-wrapper/tree/master)
-"""
 
 
 class Filter3D:
