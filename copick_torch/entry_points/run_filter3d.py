@@ -182,6 +182,7 @@ def run_filter3d(
     save_parameters(config, [tomo_alg, voxel_size], [lp_freq, lp_decay, hp_freq, hp_decay], write_algorithm)
     print("✅ Completed the Filtering!")
 
+
 def get_tomo_shape(root, run_ids, tomo_alg, voxel_size):
     import numpy as np
     import zarr
@@ -198,19 +199,25 @@ def get_tomo_shape(root, run_ids, tomo_alg, voxel_size):
         if tomo is None:
             continue
         loc = tomo.zarr()
-        shape = zarr.open(loc)['0'].shape
+        shape = zarr.open(loc)["0"].shape
         target = np.zeros(shape, dtype=np.uint8)
 
         return target.shape
 
+
 def save_filter(params):
-    from copick_torch.filters.bandpass import Filter3D
     import torch
 
+    from copick_torch.filters.bandpass import Filter3D
+
     filter = Filter3D(
-        params[0], params[1], params[2], 
-        params[3], params[4], params[5], 
-        device=torch.device("cpu") 
+        params[0],
+        params[1],
+        params[2],
+        params[3],
+        params[4],
+        params[5],
+        device=torch.device("cpu"),
     )
 
     filter.show_filter()

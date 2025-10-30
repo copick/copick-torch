@@ -50,13 +50,13 @@ class FourierRescale3D:
             raise AssertionError("Batched volumes are not allowed on CPU. Please provide a single volume.")
 
         # Try to Run on the GPU, if there's memory issues, fall back to CPU
-        try: 
+        try:
             output = self.submit(volume)
-        except: 
+        except Exception:
             # Free GPU cache before retrying on CPU
             torch.cuda.empty_cache()
 
-            print('⚠️  GPU memory issue encountered, falling back to CPU for downsampling.')
+            print("⚠️  GPU memory issue encountered, falling back to CPU for downsampling.")
             self.device = torch.device("cpu")
             output = self.submit(volume)
 
@@ -80,7 +80,6 @@ class FourierRescale3D:
         else:
             output = self.single_rescale(volume)
         return output
-
 
     def batched_rescale(self, volume: torch.Tensor):
         """
