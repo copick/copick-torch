@@ -1,5 +1,6 @@
 import click
 
+
 def downsample_commands(func):
     """Decorator to add common options to a Click command."""
     options = [
@@ -43,14 +44,16 @@ def downsample(
 
     run(config, tomo_alg, voxel_size, target_resolution, delete_source)
 
+
 def run(config, tomo_alg, voxel_size, target_resolution, delete_source):
     """
     Runs the downsampling.
     """
 
-    from copick_torch.filters import downsample
-    from copick_torch import parallelization
     import copick
+
+    from copick_torch import parallelization
+    from copick_torch.filters import downsample
 
     root = copick.from_file(config)
     run_ids = [run.name for run in root.runs]
@@ -83,8 +86,11 @@ def save_parameters(config, tomo_alg, voxel_size, target_resolution):
     Save the parameters for the downsampling.
     """
 
+    import os
+
+    import copick
+
     from copick_torch.entry_points.utils import save_parameters_yaml
-    import copick, os
 
     root = copick.from_file(config)
     overlay_root = root.config.overlay_root

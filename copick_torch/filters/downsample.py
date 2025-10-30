@@ -142,6 +142,7 @@ def downsample_init(gpu_id: int, voxel_size: float, target_resolution: float):
 
     return downsampler
 
+
 def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
     """
     Runs the downsampler class.
@@ -173,4 +174,3 @@ def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source,
         # If the Voxel Spacing is Empty, lets delete it as well
         if vs.tomograms == []:
             vs.delete()
-

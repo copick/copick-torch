@@ -1,13 +1,16 @@
-from torch.fft import fftshift, ifftshift, fftn, ifftn
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
-import torch, math
+import torch
+from torch.fft import fftn, fftshift, ifftn, ifftshift
 
 """
 This module contains functions for creating cosine-low pass filter and applying it to tomograms.
 This is a written translation of the MATLAB code cosine_filter.m from the artia-wrapper package
 (https://github.com/uermel/artia-wrapper/tree/master)
 """
+
 
 class Filter3D:
     def __init__(self, apix, sz, lp=0, lpd=0, hp=0, hpd=0, device=None):
@@ -34,10 +37,10 @@ class Filter3D:
 
         # Set Device
         if device is None:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = device
-        
+
         # Check if low-pass cutoff resolution is less than high-pass cutoff resolution
         if self.lp > self.hp and self.lp > 0 and self.hp > 0:
             raise ValueError("Low-pass cutoff resolution must be less than high-pass cutoff resolution.")
@@ -49,7 +52,7 @@ class Filter3D:
         self.lpd_pix = self.lpd  # Decay width in pixels
         self.hpd_pix = self.hpd  # Decay width in pixels
 
-        print('Constructing 3D Cosine Filter...')
+        print("Constructing 3D Cosine Filter...")
         self.cosine_filter()
 
     def angst_to_pix(self, ang):
@@ -75,20 +78,20 @@ class Filter3D:
             torch.arange(D, device=self.device, dtype=self.dtype) - D // 2,
             torch.arange(H, device=self.device, dtype=self.dtype) - H // 2,
             torch.arange(W, device=self.device, dtype=self.dtype) - W // 2,
-            indexing='ij'
+            indexing="ij",
         )
         r = torch.sqrt(xx**2 + yy**2 + zz**2)  # Radial distance in pixels
 
         # Low-pass filter
-        lpv = self.construct_filter(r, self.lp_pix, self.lpd_pix, mode='lp')
+        lpv = self.construct_filter(r, self.lp_pix, self.lpd_pix, mode="lp")
 
         # High-pass filter
-        hpv = self.construct_filter(r, self.hp_pix, self.hpd_pix, mode='hp')
+        hpv = self.construct_filter(r, self.hp_pix, self.hpd_pix, mode="hp")
 
         # Combined Filter
         self.filter = lpv * hpv
 
-    def construct_filter(self, r, freq, freqdecay, mode='lp'):
+    def construct_filter(self, r, freq, freqdecay, mode="lp"):
         """
         Constructs a low-pass or high-pass filter based on the mode.
 
@@ -101,7 +104,7 @@ class Filter3D:
         Returns:
             torch.Tensor: Filter mask.
         """
-        if mode not in ['lp', 'hp']:
+        if mode not in ["lp", "hp"]:
             raise ValueError("Mode must be 'lp' for low-pass or 'hp' for high-pass.")
 
         # Skip filter
@@ -110,7 +113,8 @@ class Filter3D:
         # Box Filter
         elif freq > 0 and freqdecay == 0:
             filter_mask = (r < freq).float()
-            if mode == 'hp': filter_mask = 1 - filter_mask
+            if mode == "hp":
+                filter_mask = 1 - filter_mask
         # # Cosine Filter starting with 1 (low-pass) or 0 (high-pass)
         # elif freq == 0 and freqdecay > 0:
         #     filter_mask = (r < freq).float()
@@ -123,11 +127,12 @@ class Filter3D:
             filter_mask = (r < freq).float()
             sel = (r > (freq - half_decay)) & (r < (freq + half_decay))
             filter_mask[sel] = 0.5 + 0.5 * torch.cos(math.pi * (r[sel] - (freq - half_decay)) / freqdecay)
-            if mode == 'hp': filter_mask = 1 - filter_mask
+            if mode == "hp":
+                filter_mask = 1 - filter_mask
 
         return filter_mask
 
-    def extract_1d_profile(self, axis='x'):
+    def extract_1d_profile(self, axis="x"):
         """
         Extracts a 1D profile from the 3D filter along the specified axis.
 
@@ -140,13 +145,13 @@ class Filter3D:
         D, H, W = filter_tensor.shape
 
         # Determine the axis
-        if axis == 'x':
+        if axis == "x":
             central_slice = filter_tensor[D // 2, H // 2, :]
             freqs = np.fft.fftfreq(W, d=self.apix)  # 1/Å
-        elif axis == 'y':
+        elif axis == "y":
             central_slice = filter_tensor[D // 2, :, W // 2]
             freqs = np.fft.fftfreq(H, d=self.apix)  # 1/Å
-        elif axis == 'z':
+        elif axis == "z":
             central_slice = filter_tensor[:, H // 2, W // 2]
             freqs = np.fft.fftfreq(D, d=self.apix)  # 1/Å
         else:
@@ -189,43 +194,45 @@ class Filter3D:
         """
 
         # Extract 1D profile
-        freqs, profile = self.extract_1d_profile(axis='x')
+        freqs, profile = self.extract_1d_profile(axis="x")
 
         # Create a 2x1 plot
         fig, axs = plt.subplots(2, 1, figsize=(8, 12))
 
         # Plot the 1D frequency profile
-        axs[0].plot(freqs, profile, label='Axis Profile')
-        axs[0].set_xlabel('Frequency (1/Å)')
-        axs[0].set_ylabel('Filter Magnitude')
-        axs[0].set_title('1D Frequency Profile Along Axis')
+        axs[0].plot(freqs, profile, label="Axis Profile")
+        axs[0].set_xlabel("Frequency (1/Å)")
+        axs[0].set_ylabel("Filter Magnitude")
+        axs[0].set_title("1D Frequency Profile Along Axis")
         axs[0].legend()
         axs[0].grid(True)
         axs[0].set_xlim(0, max(freqs))  # Set x-axis range
 
         # Plot the 2D slice of the filter
         (Nx, Ny, Nz) = self.filter.shape
-        axs[1].imshow(self.filter[int(Nx//2), :, :], cmap='gray')
-        axs[1].axis('off')
+        axs[1].imshow(self.filter[int(Nx // 2), :, :], cmap="gray")
+        axs[1].axis("off")
 
         # Show the plot
         # plt.tight_layout()
-        plt.savefig('filter.png')
+        plt.savefig("filter.png")
+
 
 def init_filter3d(gpu_id: int, apix: float, sz: tuple, lp: float, lpd: float, hp: float, hpd: float):
     """
     Initializes the filter3d class.
     """
-    device = torch.device(f"cuda:{gpu_id}") 
+    device = torch.device(f"cuda:{gpu_id}")
     filter = Filter3D(apix, sz, lp, lpd, hp, hpd, device=device)
     return filter
+
 
 def run_filter3d(run, tomo_alg, voxel_size, write_algorithm, gpu_id, models):
     """
     Runs the filter3d class.
     """
     from copick_utils.io import readers, writers
-    
+
     # Get the Filter
     filter = models
 
