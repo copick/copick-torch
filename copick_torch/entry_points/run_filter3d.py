@@ -28,7 +28,7 @@ def copick_commands(func):
         click.option("--tomo-alg", type=str, required=True, 
                     help="Tomogram Algorithm to use"),
         click.option("--voxel-size", type=float, required=False, default=10, 
-                    help="Voxel Size to Query the Data"),   
+                    help="Voxel Size to Query the Data"),
         click.option("--show-filter", type=bool, required=False, default=True, 
                     help="Save the filter as a Png (filter3d.png)")                                 
     ]
@@ -79,8 +79,8 @@ def run_filter3d(
     tomo_alg: str, voxel_size: float,
     show_filter: bool 
     ):
-    from copick_torch.filters.bandpass import Filter3D
-    from tqdm import tqdm
+    from copick_torch.filters.bandpass import init_filter3d, run_filter3d
+    from copick_torch import parallelization
     import os, copick
 
     input_check(lp_freq, hp_freq, voxel_size)
@@ -100,39 +100,31 @@ def run_filter3d(
     if lp_freq > 0: write_algorithm = write_algorithm + f'-lp{lp_freq:0.0f}A'
     if hp_freq > 0: write_algorithm = write_algorithm + f'-hp{hp_freq:0.0f}A'
 
-    # Get Tomogram for Initializing 3D Filter
-    vol = readers.tomogram(root.get_run(run_ids[0]), voxel_size, tomo_alg)
+    # Initialize Parallelization Pool
+    pool = parallelization.GPUPool(
+        init_fn=init_filter3d,
+        init_args=(voxel_size, lp_freq, lp_decay, hp_freq, hp_decay),
+        verbose=True,
+    )
 
-    # Create 3D Filter
-    filter = Filter3D(
-        apix=voxel_size, sz=vol.shape, 
-        lp= lp_freq, lpd = lp_decay, 
-        hp=hp_freq, hpd=hp_decay)
+    # Execute
+    tasks = [(run, tomo_alg, voxel_size, write_algorithm) for run in run_ids]
+    try:
+        pool.execute(
+            run_filter3d,
+            tasks,
+            task_ids=run_ids,
+            progress_desc="Filtering Tomograms",
+        )
+    finally:
+        pool.shutdown()
 
-    # Save Filter
-    if show_filter:
-        filter.show_filter()   
-    
-    # Get Tomogram and Process
-    for run_id in tqdm(run_ids):
+    save_parameters(config, [tomo_alg, voxel_size], [lp_freq, lp_decay, hp_freq, hp_decay], write_algorithm)
+    print('✅ Completed the Filtering!')
 
-        run = root.get_run(run_id)
-        vol = readers.tomogram(run, voxel_size, tomo_alg)
-
-        # Apply Low-pass Filter
-        vol = filter.apply(vol)
-
-        # Write Tomogram
-        writers.tomogram(run, vol.cpu().numpy(), voxel_size, write_algorithm)
-
-    print('Applying Filters to All Tomograms Complete...')
-
-def save_parameters(config, tomo_info, parameters):
-    import os
-
-    import copick
-
+def save_parameters(config, tomo_info, parameters, write_algorithm):
     from copick_torch.entry_points.utils import save_parameters_yaml
+    import copick, os
 
     root = copick.from_file(config)
     overlay_root = root.config.overlay_root
@@ -149,6 +141,10 @@ def save_parameters(config, tomo_info, parameters):
             "Low-Pass Decay (Pixels)": parameters[1],
             "High-Pass Frequency (Angstroms)": parameters[2],
             "High-Pass Decay (Pixels)": parameters[3],
+        },
+        'output': {
+            'tomo_alg': write_algorithm,
+            'voxel_size': tomo_info[1]
         }
     }
     os.makedirs(os.path.join(overlay_root, "logs"), exist_ok=True)

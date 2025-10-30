@@ -85,6 +85,7 @@ coverage-report = "scripts.coverage_report:main"
 
 [project.entry-points."copick.process.commands"]
 downsample = "copick_torch.entry_points.run_downsample:downsample"
+bandpass = "copick_torch.entry_points.run_filter3d:bandpass"
 
 [project.entry-points."copick.inference.commands"]
 membrain-seg = "copick_torch.entry_points.run_membrane_seg:membrain_seg"

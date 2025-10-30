@@ -1,6 +1,5 @@
 import click
 
-
 def downsample_commands(func):
     """Decorator to add common options to a Click command."""
     options = [
@@ -38,10 +37,20 @@ def downsample(
     target_resolution: float,
     delete_source: bool,
 ):
-    import copick
+    """
+    Runs the downsampling command.
+    """
 
-    from copick_torch import parallelization
+    run(config, tomo_alg, voxel_size, target_resolution, delete_source)
+
+def run(config, tomo_alg, voxel_size, target_resolution, delete_source):
+    """
+    Runs the downsampling.
+    """
+
     from copick_torch.filters import downsample
+    from copick_torch import parallelization
+    import copick
 
     root = copick.from_file(config)
     run_ids = [run.name for run in root.runs]
@@ -57,7 +66,7 @@ def downsample(
     # Execute
     try:
         pool.execute(
-            run_downsampler,
+            downsample.run_downsampler,
             tasks,
             task_ids=run_ids,
             progress_desc="Downsampling Tomograms",
@@ -69,42 +78,13 @@ def downsample(
     print("✅ Completed the Downsampling!")
 
 
-def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
-    from copick_utils.io import readers, writers
-
-    # Get the Downsampler
-    downsampler = models
-
-    # Get the Tomogram
-    tomo = readers.tomogram(run, voxel_size, tomo_alg)
-
-    # Check if Tomogram Exists
-    if tomo is None:
-        print(f"⚠️  Skipping Run {run.name}: No Tomogram found for Algorithm {tomo_alg} at Voxel Size {voxel_size}A")
-        return
-
-    # Downsample the Tomogram
-    downsampled_tomo = downsampler.run(tomo)
-
-    # Save the Downsampled Tomogram
-    writers.tomogram(run, downsampled_tomo, target_resolution, tomo_alg)
-
-    # Delete the source tomograms if requested
-    if delete_source:
-        vs = run.get_voxel_spacing(voxel_size)
-        vs.delete_tomograms(tomo_alg)
-
-        # If the Voxel Spacing is Empty, lets delete it as well
-        if vs.tomograms == []:
-            vs.delete()
-
-
 def save_parameters(config, tomo_alg, voxel_size, target_resolution):
-    import os
-
-    import copick
+    """
+    Save the parameters for the downsampling.
+    """
 
     from copick_torch.entry_points.utils import save_parameters_yaml
+    import copick, os
 
     root = copick.from_file(config)
     overlay_root = root.config.overlay_root

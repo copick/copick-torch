@@ -212,3 +212,33 @@ class Filter3D:
         # plt.tight_layout()
         plt.savefig('filter.png')
 
+def init_filter3d(gpu_id: int, apix: float, sz: tuple, lp: float, lpd: float, hp: float, hpd: float):
+    """
+    Initializes the filter3d class.
+    """
+    device = torch.device(f"cuda:{gpu_id}") 
+    filter = Filter3D(apix, sz, lp, lpd, hp, hpd, device=device)
+    return filter
+
+def run_filter3d(run, tomo_alg, voxel_size, write_algorithm, gpu_id, models):
+    """
+    Runs the filter3d class.
+    """
+    from copick_utils.io import readers, writers
+    
+    # Get the Filter
+    filter = models
+
+    # Get the Tomogram
+    tomo = readers.tomogram(run, voxel_size, tomo_alg)
+
+    # Check if Tomogram Exists
+    if tomo is None:
+        print(f"⚠️  Skipping Run {run.name}: No Tomogram found for Algorithm {tomo_alg} at Voxel Size {voxel_size}A")
+        return
+
+    # Apply the Filter
+    filtered_tomo = filter.apply(tomo)
+
+    # Save the Filtered Tomogram
+    writers.tomogram(run, filtered_tomo.cpu().numpy(), voxel_size, write_algorithm)

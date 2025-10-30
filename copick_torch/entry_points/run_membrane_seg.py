@@ -1,6 +1,5 @@
 import click
 
-
 def segment_commands(func):
     """Decorator to add common options to a Click command."""
     options = [
@@ -46,10 +45,19 @@ def membrain_seg(
     threshold: float,
     user_id: str,
 ):
-    import copick
+    """
+    Runs the membrane segmentation command.
+    """
+    run(config, tomo_alg, voxel_size, session_id, threshold, user_id)
 
-    from copick_torch import parallelization
+
+def run(config, tomo_alg, voxel_size, session_id, threshold, user_id):
+    """
+    Runs the membrane segmentation.
+    """
     from copick_torch.inference import membrain_seg
+    from copick_torch import parallelization
+    import copick
 
     print("Starting Membrane Segmentation...")
     print(f"Using Tomograms with Voxel Size: {voxel_size} and Algorithm: {tomo_alg}")
@@ -87,9 +95,9 @@ def membrain_seg(
 
 
 def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, user_id, gpu_id, models):
-    from copick_utils.io import readers, writers
 
     from copick_torch.inference import membrain_seg
+    from copick_utils.io import readers, writers
 
     # Default Sliding Window Parameters
     sw_batch_size = 4

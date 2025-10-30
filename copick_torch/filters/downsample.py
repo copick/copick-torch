@@ -141,3 +141,36 @@ def downsample_init(gpu_id: int, voxel_size: float, target_resolution: float):
     downsampler.device = torch.device(f"cuda:{gpu_id}")
 
     return downsampler
+
+def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
+    """
+    Runs the downsampler class.
+    """
+    from copick_utils.io import readers, writers
+
+    # Get the Downsampler
+    downsampler = models
+
+    # Get the Tomogram
+    tomo = readers.tomogram(run, voxel_size, tomo_alg)
+
+    # Check if Tomogram Exists
+    if tomo is None:
+        print(f"⚠️  Skipping Run {run.name}: No Tomogram found for Algorithm {tomo_alg} at Voxel Size {voxel_size}A")
+        return
+
+    # Downsample the Tomogram
+    downsampled_tomo = downsampler.run(tomo)
+
+    # Save the Downsampled Tomogram
+    writers.tomogram(run, downsampled_tomo, target_resolution, tomo_alg)
+
+    # Delete the source tomograms if requested
+    if delete_source:
+        vs = run.get_voxel_spacing(voxel_size)
+        vs.delete_tomograms(tomo_alg)
+
+        # If the Voxel Spacing is Empty, lets delete it as well
+        if vs.tomograms == []:
+            vs.delete()
+
