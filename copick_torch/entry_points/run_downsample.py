@@ -39,7 +39,7 @@ def downsample(
     delete_source: bool,
 ):
     """
-    Runs the downsampling command.
+    Downsample tomograms with Fourier Re-Scaling.
     """
 
     run(config, tomo_alg, voxel_size, target_resolution, delete_source)

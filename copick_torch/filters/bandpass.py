@@ -41,9 +41,9 @@ class Filter3D:
         else:
             self.device = device
 
-        # Check if low-pass cutoff resolution is less than high-pass cutoff resolution
-        if self.lp > self.hp and self.lp > 0 and self.hp > 0:
-            raise ValueError("Low-pass cutoff resolution must be less than high-pass cutoff resolution.")
+        # Allow LP-only, HP-only, or band-pass (hp > lp in Å)
+        if self.lp > 0 and self.hp > 0 and not (self.hp > self.lp):
+            raise ValueError("For band-pass, require hp (Å) > lp (Å).")
 
         # Convert cutoff values from angstroms to pixels
         self.lp_pix = self.angst_to_pix(self.lp) if self.lp > 0 else 0  # Low-pass cutoff in pixels
@@ -94,41 +94,42 @@ class Filter3D:
     def construct_filter(self, r, freq, freqdecay, mode="lp"):
         """
         Constructs a low-pass or high-pass filter based on the mode.
-
-        Args:
-            r (torch.Tensor): Radial spatial frequency tensor in pixels.
-            freq (float): Cutoff frequency in pixels.
-            freqdecay (float): Decay width in pixels.
-            mode (str): 'lp' for low-pass, 'hp' for high-pass.
-
-        Returns:
-            torch.Tensor: Filter mask.
+        Handles pure LP or HP cases properly.
         """
         if mode not in ["lp", "hp"]:
             raise ValueError("Mode must be 'lp' for low-pass or 'hp' for high-pass.")
 
-        # Skip filter
-        if freq == 0 and freqdecay == 0:
-            filter_mask = torch.ones_like(r)
-        # Box Filter
-        elif freq > 0 and freqdecay == 0:
-            filter_mask = (r < freq).float()
-            if mode == "hp":
-                filter_mask = 1 - filter_mask
-        # # Cosine Filter starting with 1 (low-pass) or 0 (high-pass)
-        # elif freq == 0 and freqdecay > 0:
-        #     filter_mask = (r < freq).float()
-        #     sel = r <= freqdecay
-        #     filter_mask[sel] = 0.5 + 0.5 * torch.cos(math.pi * r[sel] / freqdecay)
-        #     if mode == 'lp': filter_mask = 1 - filter_mask
-        # Box Filter with cosine decay
-        else:
-            half_decay = freqdecay / 2.0
-            filter_mask = (r < freq).float()
+        # Start with neutral mask
+        filter_mask = torch.ones_like(r, dtype=self.dtype, device=self.device)
+
+        # Skip filter: freq==0 disables that side
+        if freq == 0:
+            if mode == "lp":
+                # LP disabled → all-pass (1)
+                filter_mask[:] = 1.0
+            elif mode == "hp":
+                # HP disabled → all-pass (1)
+                filter_mask[:] = 1.0
+            return filter_mask
+
+        # Box filter
+        if freqdecay == 0:
+            if mode == "lp":
+                filter_mask = (r <= freq).float()
+            else:  # hp
+                filter_mask = (r >= freq).float()
+            return filter_mask
+
+        # Cosine transition region
+        half_decay = freqdecay / 2.0
+        if mode == "lp":
+            filter_mask = (r <= freq - half_decay).float()
             sel = (r > (freq - half_decay)) & (r < (freq + half_decay))
             filter_mask[sel] = 0.5 + 0.5 * torch.cos(math.pi * (r[sel] - (freq - half_decay)) / freqdecay)
-            if mode == "hp":
-                filter_mask = 1 - filter_mask
+        else:  # high-pass
+            filter_mask = (r >= freq + half_decay).float()
+            sel = (r > (freq - half_decay)) & (r < (freq + half_decay))
+            filter_mask[sel] = 0.5 - 0.5 * torch.cos(math.pi * (r[sel] - (freq - half_decay)) / freqdecay)
 
         return filter_mask
 
