@@ -25,7 +25,7 @@ def low_pass_commands(func):
             type=bool,
             required=False,
             default=True,
-            help="Save the filter as a Png (filter3d.png)",
+            help="Save the filter as a PNG (filter3d.png)",
         ),
     ]
     for option in reversed(options):  # Add options in reverse order to preserve correct order
