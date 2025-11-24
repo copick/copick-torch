@@ -200,11 +200,7 @@ def get_tomo_shape(root, run_ids, tomo_alg, voxel_size):
             continue
         loc = tomo.zarr()
         shape = zarr.open(loc)["0"].shape
-        target = np.zeros(shape, dtype=np.uint8)
-
-        return target.shape
-
-
+        return shape
 def save_filter(params):
     import torch
 
