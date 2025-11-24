@@ -52,14 +52,19 @@ class FourierRescale3D:
         # Try to Run on the GPU, if there's memory issues, fall back to CPU
         try:
             output = self.submit(volume)
-        except Exception:
-            # Free GPU cache before retrying on CPU
-            torch.cuda.empty_cache()
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+            # Only handle GPU out-of-memory errors, not all exceptions
+            if isinstance(e, torch.cuda.OutOfMemoryError) or (
+                isinstance(e, RuntimeError) and "out of memory" in str(e).lower()
+            ):
+                # Free GPU cache before retrying on CPU
+                torch.cuda.empty_cache()
 
-            print("⚠️  GPU memory issue encountered, falling back to CPU for downsampling.")
-            self.device = torch.device("cpu")
-            output = self.submit(volume)
-
+                print("⚠️  GPU memory issue encountered, falling back to CPU for downsampling.")
+                self.device = torch.device("cpu")
+                output = self.submit(volume)
+            else:
+                raise
         # Return to CPU if Compute is on GPU
         if self.device != torch.device("cpu"):
             output = output.cpu()
