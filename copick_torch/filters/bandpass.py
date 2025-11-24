@@ -1,5 +1,5 @@
 """
-This module contains functions for creating cosine-low pass filter and applying it to tomograms.
+This module contains functions for creating cosine low-pass filter and applying it to tomograms.
 This is a written translation of the MATLAB code cosine_filter.m from the artia-wrapper package
 (https://github.com/uermel/artia-wrapper/tree/master)
 """
