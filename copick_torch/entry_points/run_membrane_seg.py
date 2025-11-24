@@ -97,7 +97,6 @@ def run(config, tomo_alg, voxel_size, session_id, threshold, user_id):
 
 
 def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, user_id, gpu_id, models):
-
     from copick_utils.io import readers, writers
 
     from copick_torch.inference import membrain_seg
