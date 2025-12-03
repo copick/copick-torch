@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.0...copick-torch-v1.0.1) (2025-12-03)
+
+
+### 🐞 Bug Fixes
+
+* bump actions/checkout from 5 to 6 ([#82](https://github.com/copick/copick-torch/issues/82)) ([8c83d09](https://github.com/copick/copick-torch/commit/8c83d095b31154a01c8eb516f1a721e0924904fa))
+* bump astral-sh/setup-uv from 6 to 7 ([#76](https://github.com/copick/copick-torch/issues/76)) ([950381c](https://github.com/copick/copick-torch/commit/950381cd25f00c624621ffec55ea2935a7999978))
+* bump chanzuckerberg/github-actions from 6.10.0 to 6.11.1 ([#83](https://github.com/copick/copick-torch/issues/83)) ([adca01e](https://github.com/copick/copick-torch/commit/adca01edbd2e6feb62963840217c5e2b42abd5e1))
+* fix up the cleanup during parallel processing and log parameters… ([#77](https://github.com/copick/copick-torch/issues/77)) ([b5fbb4a](https://github.com/copick/copick-torch/commit/b5fbb4a778069a09bf0443af6c08e8a04b1096a3))
+
 ## [1.0.0](https://github.com/copick/copick-torch/compare/copick-torch-v0.2.1...copick-torch-v1.0.0) (2025-10-10)
 
 
