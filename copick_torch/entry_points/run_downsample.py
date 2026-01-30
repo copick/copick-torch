@@ -38,6 +38,18 @@ def downsample(
     target_resolution: float,
     delete_source: bool,
 ):
+    """
+    Downsample tomograms with Fourier Re-Scaling.
+    """
+
+    run(config, tomo_alg, voxel_size, target_resolution, delete_source)
+
+
+def run(config, tomo_alg, voxel_size, target_resolution, delete_source):
+    """
+    Runs the downsampling.
+    """
+
     import copick
 
     from copick_torch import parallelization
@@ -57,7 +69,7 @@ def downsample(
     # Execute
     try:
         pool.execute(
-            run_downsampler,
+            downsample.run_downsampler,
             tasks,
             task_ids=run_ids,
             progress_desc="Downsampling Tomograms",
@@ -69,37 +81,11 @@ def downsample(
     print("✅ Completed the Downsampling!")
 
 
-def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
-    from copick_utils.io import readers, writers
-
-    # Get the Downsampler
-    downsampler = models
-
-    # Get the Tomogram
-    tomo = readers.tomogram(run, voxel_size, tomo_alg)
-
-    # Check if Tomogram Exists
-    if tomo is None:
-        print(f"⚠️  Skipping Run {run.name}: No Tomogram found for Algorithm {tomo_alg} at Voxel Size {voxel_size}A")
-        return
-
-    # Downsample the Tomogram
-    downsampled_tomo = downsampler.run(tomo)
-
-    # Save the Downsampled Tomogram
-    writers.tomogram(run, downsampled_tomo, target_resolution, tomo_alg)
-
-    # Delete the source tomograms if requested
-    if delete_source:
-        vs = run.get_voxel_spacing(voxel_size)
-        vs.delete_tomograms(tomo_alg)
-
-        # If the Voxel Spacing is Empty, lets delete it as well
-        if vs.tomograms == []:
-            vs.delete()
-
-
 def save_parameters(config, tomo_alg, voxel_size, target_resolution):
+    """
+    Save the parameters for the downsampling.
+    """
+
     import os
 
     import copick

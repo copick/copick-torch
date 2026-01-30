@@ -46,6 +46,16 @@ def membrain_seg(
     threshold: float,
     user_id: str,
 ):
+    """
+    Runs the membrane segmentation command.
+    """
+    run(config, tomo_alg, voxel_size, session_id, threshold, user_id)
+
+
+def run(config, tomo_alg, voxel_size, session_id, threshold, user_id):
+    """
+    Runs the membrane segmentation.
+    """
     import copick
 
     from copick_torch import parallelization
