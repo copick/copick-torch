@@ -15,6 +15,13 @@ def segment_commands(func):
             help="Session ID for the Saved Membrane Segmentation",
         ),
         click.option(
+            "--user-id",
+            type=str,
+            required=False,
+            default="membrain-seg",
+            help="User ID for the Saved Membrane Segmentation",
+        ),
+        click.option(
             "--threshold",
             type=float,
             required=False,
@@ -37,7 +44,18 @@ def membrain_seg(
     voxel_size: float,
     session_id: str,
     threshold: float,
+    user_id: str,
 ):
+    """
+    Runs the membrane segmentation command.
+    """
+    run(config, tomo_alg, voxel_size, session_id, threshold, user_id)
+
+
+def run(config, tomo_alg, voxel_size, session_id, threshold, user_id):
+    """
+    Runs the membrane segmentation.
+    """
     import copick
 
     from copick_torch import parallelization
@@ -45,7 +63,7 @@ def membrain_seg(
 
     print("Starting Membrane Segmentation...")
     print(f"Using Tomograms with Voxel Size: {voxel_size} and Algorithm: {tomo_alg}")
-    print(f"Saving Segmentations with membrain-seg_{session_id}_membranes Query")
+    print(f"Saving Segmentations with {user_id}_{session_id}_membranes Query")
     print(f"Segmentation Threshold: {threshold}\n")
 
     # Read Copick Project and Get Runs
@@ -61,7 +79,7 @@ def membrain_seg(
     # Check to see if model is available
     # If not, download it
 
-    tasks = [(run, tomo_alg, voxel_size, session_id, threshold) for run in root.runs]
+    tasks = [(run, tomo_alg, voxel_size, session_id, threshold, user_id) for run in root.runs]
 
     # Execute
     try:
@@ -74,10 +92,11 @@ def membrain_seg(
     finally:
         pool.shutdown()
 
-    print("Completed the Membrane Segmentation!")
+    save_parameters(config, tomo_alg, voxel_size, session_id, user_id, threshold)
+    print("✅ Completed the Membrane Segmentation!")
 
 
-def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, gpu_id, models):
+def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, user_id, gpu_id, models):
     from copick_utils.io import readers, writers
 
     from copick_torch.inference import membrain_seg
@@ -101,4 +120,39 @@ def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, gpu_id, mode
     )
 
     # Save the Segmentation
-    writers.segmentation(run, predictions, "membrain-seg", "membranes", session_id=session_id, voxel_size=voxel_size)
+    writers.segmentation(run, predictions, user_id, "membranes", session_id=session_id, voxel_size=voxel_size)
+
+
+def save_parameters(config, tomo_alg, voxel_size, session_id, user_id, threshold):
+    import os
+
+    import copick
+
+    from copick_torch.entry_points.utils import save_parameters_yaml
+
+    # Determine Path to Save Parameters
+    root = copick.from_file(config)
+    overlay_root = root.config.overlay_root
+    if overlay_root[:8] == "local://":
+        overlay_root = overlay_root[8:]
+    group = {
+        "input": {
+            "config": config,
+            "tomo_alg": tomo_alg,
+            "voxel_size": voxel_size,
+        },
+        "parameters": {
+            "threshold": threshold,
+            "sw_batch_size": 4,
+            "sw_window_size": 160,
+        },
+        "output": {
+            "name": "membranes",
+            "user-id": user_id,
+            "session_id": session_id,
+        },
+    }
+    os.makedirs(os.path.join(overlay_root, "logs"), exist_ok=True)
+    path = os.path.join(overlay_root, "logs", f"segment-{user_id}_{session_id}_membranes.yaml")
+    save_parameters_yaml(group, path)
+    print(f"📝 Saved Parameters to {path}")

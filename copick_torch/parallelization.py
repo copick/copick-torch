@@ -236,19 +236,16 @@ class GPUPool:
                 print(f"  GPU {gpu_id}: {stats['count']} tasks, avg {avg_time:.2f}s/task")
 
     def shutdown(self):
-        """Shutdown workers"""
+        """Shutdown workers and cleanup resources"""
         if self.verbose:
-            print("Shutting down workers...")
+            print("Cleaning up GPU resources...")
 
-            # Send shutdown signals
-            for _ in range(self.n_gpus):
-                try:
-                    self.task_queue.put(None, timeout=1.0)
-                except Exception as e:
-                    if self.verbose:
-                        print(f"Error sending shutdown signal: {e}")
-                    raise e
+        # Clear models and free GPU memory
+        for gpu_id in range(self.n_gpus):
+            if gpu_id in self.models:
+                self.models[gpu_id] = None
+                torch.cuda.set_device(gpu_id)
+                torch.cuda.empty_cache()
 
-            # self.started = False
-            if self.verbose:
-                print("All workers shut down")
+        if self.verbose:
+            print("Cleanup complete")

@@ -49,11 +49,22 @@ class FourierRescale3D:
         if self.device.type == "cpu" and volume.dim() == 4:
             raise AssertionError("Batched volumes are not allowed on CPU. Please provide a single volume.")
 
-        if volume.dim() == 4:
-            output = self.batched_rescale(volume)
-        else:
-            output = self.single_rescale(volume)
+        # Try to Run on the GPU, if there's memory issues, fall back to CPU
+        try:
+            output = self.submit(volume)
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+            # Only handle GPU out-of-memory errors, not all exceptions
+            if isinstance(e, torch.cuda.OutOfMemoryError) or (
+                isinstance(e, RuntimeError) and "out of memory" in str(e).lower()
+            ):
+                # Free GPU cache before retrying on CPU
+                torch.cuda.empty_cache()
 
+                print("⚠️  GPU memory issue encountered, falling back to CPU for downsampling.")
+                self.device = torch.device("cpu")
+                output = self.submit(volume)
+            else:
+                raise
         # Return to CPU if Compute is on GPU
         if self.device != torch.device("cpu"):
             output = output.cpu()
@@ -64,6 +75,16 @@ class FourierRescale3D:
             return output.numpy()
         else:
             return output
+
+    def submit(self, volume: torch.Tensor) -> torch.Tensor:
+        """
+        Submit the volume for rescaling based on its dimensionality.
+        """
+        if volume.dim() == 4:
+            output = self.batched_rescale(volume)
+        else:
+            output = self.single_rescale(volume)
+        return output
 
     def batched_rescale(self, volume: torch.Tensor):
         """
@@ -141,3 +162,36 @@ def downsample_init(gpu_id: int, voxel_size: float, target_resolution: float):
     downsampler.device = torch.device(f"cuda:{gpu_id}")
 
     return downsampler
+
+
+def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
+    """
+    Runs the downsampler class.
+    """
+    from copick_utils.io import readers, writers
+
+    # Get the Downsampler
+    downsampler = models
+
+    # Get the Tomogram
+    tomo = readers.tomogram(run, voxel_size, tomo_alg)
+
+    # Check if Tomogram Exists
+    if tomo is None:
+        print(f"⚠️  Skipping Run {run.name}: No Tomogram found for Algorithm {tomo_alg} at Voxel Size {voxel_size}A")
+        return
+
+    # Downsample the Tomogram
+    downsampled_tomo = downsampler.run(tomo)
+
+    # Save the Downsampled Tomogram
+    writers.tomogram(run, downsampled_tomo, target_resolution, tomo_alg)
+
+    # Delete the source tomograms if requested
+    if delete_source:
+        vs = run.get_voxel_spacing(voxel_size)
+        vs.delete_tomograms(tomo_alg)
+
+        # If the Voxel Spacing is Empty, lets delete it as well
+        if vs.tomograms == []:
+            vs.delete()

@@ -38,6 +38,18 @@ def downsample(
     target_resolution: float,
     delete_source: bool,
 ):
+    """
+    Downsample tomograms with Fourier Re-Scaling.
+    """
+
+    run(config, tomo_alg, voxel_size, target_resolution, delete_source)
+
+
+def run(config, tomo_alg, voxel_size, target_resolution, delete_source):
+    """
+    Runs the downsampling.
+    """
+
     import copick
 
     from copick_torch import parallelization
@@ -57,7 +69,7 @@ def downsample(
     # Execute
     try:
         pool.execute(
-            run_downsampler,
+            downsample.run_downsampler,
             tasks,
             task_ids=run_ids,
             progress_desc="Downsampling Tomograms",
@@ -65,29 +77,36 @@ def downsample(
     finally:
         pool.shutdown()
 
-    print("Completed the Downsampling!")
+    save_parameters(config, tomo_alg, voxel_size, target_resolution)
+    print("✅ Completed the Downsampling!")
 
 
-def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
-    from copick_utils.io import readers, writers
+def save_parameters(config, tomo_alg, voxel_size, target_resolution):
+    """
+    Save the parameters for the downsampling.
+    """
 
-    # Get the Downsampler
-    downsampler = models
+    import os
 
-    # Get the Tomogram
-    tomo = readers.tomogram(run, voxel_size, tomo_alg)
+    import copick
 
-    # Downsample the Tomogram
-    downsampled_tomo = downsampler.run(tomo)
+    from copick_torch.entry_points.utils import save_parameters_yaml
 
-    # Save the Downsampled Tomogram
-    writers.tomogram(run, downsampled_tomo, target_resolution, tomo_alg)
-
-    # Delete the source tomograms if requested
-    if delete_source:
-        vs = run.get_voxel_spacing(voxel_size)
-        vs.delete_tomograms(tomo_alg)
-
-        # If the Voxel Spacing is Empty, lets delete it as well
-        if vs.tomograms == []:
-            vs.delete()
+    root = copick.from_file(config)
+    overlay_root = root.config.overlay_root
+    if overlay_root[:8] == "local://":
+        overlay_root = overlay_root[8:]
+    group = {
+        "input": {
+            "config": config,
+            "tomo_alg": tomo_alg,
+            "voxel_size": voxel_size,
+        },
+        "output": {
+            "target_resolution": target_resolution,
+        },
+    }
+    os.makedirs(os.path.join(overlay_root, "logs"), exist_ok=True)
+    path = os.path.join(overlay_root, "logs", f"process-downsample_{tomo_alg}_{target_resolution}A.yaml")
+    save_parameters_yaml(group, path)
+    print(f"📝 Saved Parameters to {path}")
