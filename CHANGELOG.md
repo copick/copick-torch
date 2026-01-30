@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.1...copick-torch-v1.1.0) (2026-01-30)
+
+
+### ✨ Features
+
+* 3D bandpass filtering and lazy loading ([#80](https://github.com/copick/copick-torch/issues/80)) ([118a388](https://github.com/copick/copick-torch/commit/118a38878fbb91496349658348e1b38d88b7f523))
+
+
+### 🐞 Bug Fixes
+
+* bump chanzuckerberg/github-actions from 6.11.1 to 6.13.0 ([#87](https://github.com/copick/copick-torch/issues/87)) ([d871e69](https://github.com/copick/copick-torch/commit/d871e6995a2d8b0090b8dbc18fc77cdaec492753))
+* improve CLI speed and update tests ([#88](https://github.com/copick/copick-torch/issues/88)) ([b105985](https://github.com/copick/copick-torch/commit/b105985cba26048afc40bb2bf2d22dd6ab088438))
+
 ## [1.0.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.0...copick-torch-v1.0.1) (2025-12-03)
 
 
