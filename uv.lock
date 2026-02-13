@@ -656,12 +656,14 @@ wheels = [
 
 [[package]]
 name = "copick"
-version = "1.8.2"
+version = "1.20.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "cryoet-data-portal" },
     { name = "distinctipy" },
+    { name = "dynamotable" },
+    { name = "emfile" },
     { name = "fsspec" },
     { name = "mrcfile" },
     { name = "numcodecs", version = "0.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -670,20 +672,25 @@ dependencies = [
     { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "ome-zarr", version = "0.10.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version <= '3.10'" },
     { name = "ome-zarr", version = "0.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version > '3.10'" },
+    { name = "pandas" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "rich" },
     { name = "s3fs" },
     { name = "scikit-image" },
     { name = "sshfs" },
+    { name = "starfile" },
     { name = "textual" },
+    { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "tifffile", version = "2025.6.11", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "tqdm" },
     { name = "trimesh" },
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "zarr", version = "2.18.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/4d/bddd18b60030b79823218d33f4cd76e4bb39ffed62914237479ef7aceb0a/copick-1.8.2.tar.gz", hash = "sha256:93ef82a4142262d2254cc9796fde0269feb7a19b1c352b8c8ed1fd3da2af8737", size = 5440924, upload-time = "2025-07-16T22:05:13.343Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/43/07f30e31b688f146eaa0c86e14d38e35b33991204e5c50185c4962445aef/copick-1.20.0.tar.gz", hash = "sha256:ba2a4cf227c58317f4e5a8956604b05173c6175c73866b076d8e636370052046", size = 9319596, upload-time = "2026-02-13T22:01:29.416Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/3c/d11bbebc86da1e9cf4189b77f3e5cd34b00574887899203177a06e4f9437/copick-1.8.2-py3-none-any.whl", hash = "sha256:babcb43b8fcabcd30f97248491a205f6ce0c1f0b1af50cd8405e90857b23fba1", size = 67660, upload-time = "2025-07-16T22:05:11.651Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/87/ed6af9a9e01b6e256c4db87c4077fe701f038e1460a75cf4a91ccef4b458/copick-1.20.0-py3-none-any.whl", hash = "sha256:43ff42ea1fe229cd0fb23bc55530818565466b25638ceba2ca9334278df6817c", size = 153087, upload-time = "2026-02-13T22:01:27Z" },
 ]
 
 [[package]]
@@ -737,7 +744,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
-    { name = "copick", specifier = ">=1.8.2" },
+    { name = "copick", specifier = ">=1.20.0" },
     { name = "copick-utils" },
     { name = "dask" },
     { name = "einops" },
@@ -1058,12 +1065,33 @@ wheels = [
 ]
 
 [[package]]
+name = "dynamotable"
+version = "0.2.4"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/a1/d9fa74cbd675c1a7fb72844073b266f665fef1aaf02e7308104cd24a7eea/dynamotable-0.2.4-py3-none-any.whl", hash = "sha256:616d04092f3b58108d97d30a5dab8c5f1dcb0cdfc4b536ef0c213413b0b836e5", size = 8075, upload-time = "2021-02-06T14:58:36.313Z" },
+]
+
+[[package]]
 name = "einops"
 version = "0.8.1"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e5/81/df4fbe24dff8ba3934af99044188e20a98ed441ad17a274539b74e82e126/einops-0.8.1.tar.gz", hash = "sha256:de5d960a7a761225532e0f1959e5315ebeafc0cd43394732f103ca44b9837e84", size = 54805, upload-time = "2025-02-09T03:17:00.434Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/62/9773de14fe6c45c23649e98b83231fffd7b9892b6cf863251dc2afa73643/einops-0.8.1-py3-none-any.whl", hash = "sha256:919387eb55330f5757c6bea9165c5ff5cfe63a642682ea788a6d472576d81737", size = 64359, upload-time = "2025-02-09T03:17:01.998Z" },
+]
+
+[[package]]
+name = "emfile"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/11/3647ed3d691400e669fa799f561ae850204179f809185652c5e7aae8dfe3/emfile-0.3.0.tar.gz", hash = "sha256:d7e9114aac5e2a29db9d77ab669659499c2f8c38ca13a5ff468c39ec89181a9b", size = 4081, upload-time = "2021-11-25T13:38:43.198Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/51/482938baea53321ad0482544e9147905e96d9e7f29ab368d3a9c59b7e8f9/emfile-0.3.0-py3-none-any.whl", hash = "sha256:cda7eb08b74cacd9ce5b38d1e52abbf08092d7352ed5abe8b2ba50c54412eedf", size = 4787, upload-time = "2021-11-25T13:38:41.962Z" },
 ]
 
 [[package]]
@@ -1423,7 +1451,7 @@ name = "importlib-metadata"
 version = "8.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp" },
+    { name = "zipp", marker = "python_full_version < '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/66/650a33bd90f786193e4de4b3ad86ea60b53c89b669a5c7be931fac31cdb0/importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000", size = 56641, upload-time = "2025-04-27T15:29:01.736Z" }
 wheels = [
@@ -4259,6 +4287,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29519eb6884dd1415ecb53b0e934862d3559ddcb7e20b/stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9", size = 44707, upload-time = "2023-09-30T13:58:05.479Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521, upload-time = "2023-09-30T13:58:03.53Z" },
+]
+
+[[package]]
+name = "starfile"
+version = "0.5.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/c5/83fd806f8a7c982fb4861171e6761cc1016649ffc3a7ff9cc3f9fd608419/starfile-0.5.13.tar.gz", hash = "sha256:c9562960b06558a35c12e0bd1b8a30b71c4b676733a8b9f222c8ee94a152dc15", size = 28533, upload-time = "2025-06-02T19:34:10.316Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/d4/a4e3e0237574058d3b901971f185a22cb4d1751151b224d4cc44b023f1fa/starfile-0.5.13-py3-none-any.whl", hash = "sha256:2a8cd876121e9183b4594442bc3bd0818964aba66da964e5b2c373984b3c0ce7", size = 10614, upload-time = "2025-06-02T19:34:07.532Z" },
 ]
 
 [[package]]
