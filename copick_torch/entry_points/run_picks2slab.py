@@ -109,7 +109,7 @@ def picks2slab(
     # Parse tomogram URI to extract tomo_type and voxel_spacing
     tomo_params = parse_copick_uri(tomogram_uri, "tomogram")
     tomo_type = tomo_params["tomo_type"]
-    voxel_spacing = tomo_params["voxel_spacing"]
+    voxel_spacing = float(tomo_params["voxel_spacing"])
 
     # Create dual-selector config for picks → mesh
     try:
