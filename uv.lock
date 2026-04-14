@@ -880,6 +880,8 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "scipy", version = "1.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "torch" },
+    { name = "torch-cubic-spline-grids", version = "0.0.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "torch-cubic-spline-grids", version = "0.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "torchvision" },
     { name = "zarr", version = "2.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
@@ -933,6 +935,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.6.1" },
     { name = "scipy" },
     { name = "torch" },
+    { name = "torch-cubic-spline-grids" },
     { name = "torchvision", specifier = ">=0.21.0" },
     { name = "tox", marker = "extra == 'test'" },
     { name = "tox-gh-actions", marker = "extra == 'test'" },
@@ -5398,6 +5401,46 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ee/11/08774a8198a33263947c59e04b8a0bf85a61a44e82100c46cf833bbce35e/torch-2.6.0-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:bb2c6c3e65049f081940f5ab15c9136c7de40d3f01192541c920a07c7c585b7e", size = 95782656, upload-time = "2025-01-29T16:21:33.978Z" },
     { url = "https://files.pythonhosted.org/packages/c1/0d/56fb07032accbfebb4555638b6002ec5678d0942da85497e40f9405ab756/torch-2.6.0-cp39-cp39-win_amd64.whl", hash = "sha256:683410f97984103148e31b38a8631acf31c3034c020c0f4d26171e7626d8317a", size = 204061417, upload-time = "2025-01-29T16:18:07.965Z" },
     { url = "https://files.pythonhosted.org/packages/b3/17/41f681b87290a1d2f1394f943e470f8b0b3c2987b7df8dc078d8831fce5b/torch-2.6.0-cp39-none-macosx_11_0_arm64.whl", hash = "sha256:265f70de5fd45b864d924b64be1797f86e76c8e48a02c2a3a6fc7ec247d2226c", size = 66520446, upload-time = "2025-01-29T16:19:42.165Z" },
+]
+
+[[package]]
+name = "torch-cubic-spline-grids"
+version = "0.0.10"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version > '3.10' and python_full_version < '3.11'",
+    "python_full_version == '3.10'",
+    "python_full_version < '3.10'",
+]
+dependencies = [
+    { name = "einops", marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "torch", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/4e/86dc14585bae342e15de6f49136e2d33a9502c8bab366f065cbaf5bb2c52/torch_cubic_spline_grids-0.0.10.tar.gz", hash = "sha256:8dd3fb2984f338ed431684867ea0da6b317f964069d323b7d029870a810b858f", size = 149865, upload-time = "2025-04-17T16:22:51.322Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/39/88/6bffc14e253fbb6dca8c0888a1e13d4ebcf57e2cf46a21e4929a20f981e6/torch_cubic_spline_grids-0.0.10-py3-none-any.whl", hash = "sha256:a8f59fd4d26d2c586e368db74c05d91fd03bb68ee4662e4fb0596e6a0925459d", size = 14990, upload-time = "2025-04-17T16:22:49.934Z" },
+]
+
+[[package]]
+name = "torch-cubic-spline-grids"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+]
+dependencies = [
+    { name = "einops", marker = "python_full_version >= '3.11'" },
+    { name = "numpy", version = "2.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "torch", marker = "python_full_version >= '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b4/f3/7ed395e615571c267d33bdaaf47f9298196c06a57fe958200262c95643a8/torch_cubic_spline_grids-0.5.0.tar.gz", hash = "sha256:ed6206b3e58523b7ec2e16fd0a3f92fc8cd350b223e20e4197c7994bdf1e19e0", size = 147671, upload-time = "2026-04-14T16:10:19.546Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/8e/1fea801b03177fb68dfec8afa4927fd51529dcef532ef17a73ace9f8344d/torch_cubic_spline_grids-0.5.0-py3-none-any.whl", hash = "sha256:7d5b749c9af376c9015674c7ff8ea65d68d1bdce4bcf4dd8dbed6eb00e2b9f8e", size = 14906, upload-time = "2026-04-14T16:10:18.261Z" },
 ]
 
 [[package]]
