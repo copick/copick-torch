@@ -28,11 +28,18 @@ from copick_utils.util.config_models import create_dual_selector_config
 @optgroup.group("\nTool Options", help="Options related to this tool.")
 @add_tomogram_option(required=True)
 @optgroup.option(
+    "--method",
+    type=click.Choice(["spline", "parallel"], case_sensitive=False),
+    default="spline",
+    help="Surface fitting method: 'spline' fits independent B-spline surfaces, "
+    "'parallel' fits two parallel planes (shared normal, two offsets).",
+)
+@optgroup.option(
     "--grid-resolution",
     nargs=2,
     type=int,
     default=(5, 5),
-    help="B-spline grid resolution (rows cols).",
+    help="B-spline grid resolution (rows cols). Only used with --method spline.",
 )
 @optgroup.option(
     "--fit-resolution",
@@ -63,6 +70,7 @@ def picks2slab(
     input1_uri,
     input2_uri,
     tomogram_uri,
+    method,
     grid_resolution,
     fit_resolution,
     num_iterations,
@@ -72,11 +80,20 @@ def picks2slab(
     debug,
 ):
     """
-    Fit cubic B-spline surfaces to two pick sets and create a closed slab mesh.
+    Fit surfaces to two pick sets and create a closed slab mesh.
 
     Takes two sets of picks (e.g. top-layer and bottom-layer boundary annotations)
-    and fits independent cubic B-spline surfaces to each. The fitted surfaces are
-    then connected with side walls to form a closed, watertight slab mesh.
+    and fits surfaces to each. Two methods are available:
+
+    \b
+    - spline (default): Fits independent cubic B-spline surfaces to each pick set.
+      Produces smooth, flexible surfaces that follow the curvature of the picks.
+    - parallel: Fits two parallel planes with a shared normal vector and different
+      offsets. Produces flat, rigid surfaces guaranteed to be parallel.
+
+    \b
+    The fitted surfaces are connected with side walls to form a closed, watertight
+    slab mesh.
 
     \b
     URI Format:
@@ -86,10 +103,16 @@ def picks2slab(
 
     \b
     Examples:
-        # Fit slab from top and bottom layer picks
+        # Fit slab with flexible spline surfaces (default)
         copick convert picks2slab -c config.json \\
             -i1 "top-layer:bob/1" -i2 "bottom-layer:bob/1" \\
             -t "wbp@7.84" \\
+            -o "sample:picks2slab/0"
+
+        # Fit slab with parallel planes
+        copick convert picks2slab -c config.json \\
+            -i1 "top-layer:bob/1" -i2 "bottom-layer:bob/1" \\
+            -t "wbp@7.84" --method parallel \\
             -o "sample:picks2slab/0"
 
         # With custom spline and mesh resolution
@@ -136,7 +159,9 @@ def picks2slab(
         f"Target mesh: {output_params['object_name']} ({output_params['user_id']}/{output_params['session_id']})",
     )
     logger.info(f"Tomogram: {tomo_type}@{voxel_spacing}")
-    logger.info(f"Grid resolution: {grid_resolution}, Fit resolution: {fit_resolution}")
+    logger.info(f"Method: {method}, Fit resolution: {fit_resolution}")
+    if method == "spline":
+        logger.info(f"Grid resolution: {grid_resolution}")
 
     # Run batch conversion
     results = slab_from_picks_lazy_batch(
@@ -146,6 +171,7 @@ def picks2slab(
         workers=workers,
         tomo_type=tomo_type,
         voxel_spacing=voxel_spacing,
+        method=method,
         grid_resolution=tuple(grid_resolution),
         fit_resolution=tuple(fit_resolution),
         num_iterations=num_iterations,

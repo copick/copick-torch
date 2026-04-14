@@ -1,4 +1,4 @@
-"""Fit cubic B-spline surfaces to two pick sets and create a closed slab mesh."""
+"""Fit surfaces to two pick sets and create a closed slab mesh."""
 
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, Tuple
 
@@ -94,6 +94,111 @@ def evaluate_spline_on_grid(
     return points
 
 
+def _xy_to_z(xy: torch.Tensor, plane_normal: torch.Tensor, plane_offset: torch.Tensor) -> torch.Tensor:
+    """Compute z coordinate from xy and plane parameters."""
+    normal = plane_normal / torch.norm(plane_normal)
+    d = torch.matmul(xy, normal[[2, 1]]) + plane_offset
+    return -d / normal[0]
+
+
+def fit_parallel_planes_from_picks(
+    points1: np.ndarray,
+    points2: np.ndarray,
+    max_dim: Sequence[float],
+    num_iterations: int = 500,
+    learning_rate: float = 0.1,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Fit two parallel planes to two sets of 3D points.
+
+    Learns a shared plane normal and two offsets that minimize the RMS distance
+    from each point set to its respective plane.
+
+    Args:
+        points1: Nx3 array of first surface points (e.g. top-layer).
+        points2: Mx3 array of second surface points (e.g. bottom-layer).
+        max_dim: Physical dimensions [x, y, z] for normalization.
+        num_iterations: Number of Adam optimizer iterations.
+        learning_rate: Learning rate for the optimizer.
+
+    Returns:
+        Tuple of (plane_normal, offset1, offset2) as CPU tensors.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Normalize xy to [0, 1] and z separately
+    xy1 = points1[:, 0:2].copy()
+    xy1[:, 0] /= max_dim[0]
+    xy1[:, 1] /= max_dim[1]
+    z1 = points1[:, 2] / max_dim[2]
+
+    xy2 = points2[:, 0:2].copy()
+    xy2[:, 0] /= max_dim[0]
+    xy2[:, 1] /= max_dim[1]
+    z2 = points2[:, 2] / max_dim[2]
+
+    xy1_t = torch.tensor(xy1, dtype=torch.float32, device=device)
+    z1_t = torch.tensor(z1, dtype=torch.float32, device=device)
+    xy2_t = torch.tensor(xy2, dtype=torch.float32, device=device)
+    z2_t = torch.tensor(z2, dtype=torch.float32, device=device)
+
+    # Learnable parameters: shared normal, two offsets
+    plane_normal = torch.nn.Parameter(torch.tensor([1.0, 0.0, 0.0], device=device, requires_grad=True))
+    offset1 = torch.nn.Parameter(torch.tensor([-0.5], device=device, requires_grad=True))
+    offset2 = torch.nn.Parameter(torch.tensor([-0.5], device=device, requires_grad=True))
+
+    optimizer = torch.optim.Adam([plane_normal, offset1, offset2], lr=learning_rate)
+
+    t = tqdm.trange(num_iterations, desc="RMS: ", leave=True)
+    for _ in t:
+        optimizer.zero_grad()
+
+        pred_z1 = _xy_to_z(xy1_t, plane_normal, offset1).squeeze()
+        pred_z2 = _xy_to_z(xy2_t, plane_normal, offset2).squeeze()
+
+        loss1 = torch.sum((pred_z1 - z1_t) ** 2) ** 0.5
+        loss2 = torch.sum((pred_z2 - z2_t) ** 2) ** 0.5
+        loss = loss1 + loss2
+
+        loss.backward()
+        optimizer.step()
+        t.set_description(f"RMS: {loss.item():.6f}")
+        t.refresh()
+
+    return plane_normal.detach().cpu(), offset1.detach().cpu(), offset2.detach().cpu()
+
+
+def evaluate_plane_on_grid(
+    plane_normal: torch.Tensor,
+    plane_offset: torch.Tensor,
+    fit_resolution: Tuple[int, int],
+    max_dim: Sequence[float],
+) -> np.ndarray:
+    """Evaluate a plane on a regular grid and return physical coordinates.
+
+    Args:
+        plane_normal: 3D plane normal vector.
+        plane_offset: Scalar plane offset.
+        fit_resolution: (rows, cols) grid resolution.
+        max_dim: Physical dimensions [x, y, z] for denormalization.
+
+    Returns:
+        Nx3 array of points in physical coordinates.
+    """
+    yy, xx = torch.meshgrid(
+        torch.linspace(0, 1, fit_resolution[1]),
+        torch.linspace(0, 1, fit_resolution[0]),
+        indexing="ij",
+    )
+    xy = torch.stack([yy, xx], dim=2).view(-1, 2)
+
+    points = np.empty((xy.shape[0], 3))
+    points[:, 0] = xy[:, 1].numpy() * max_dim[0]
+    points[:, 1] = xy[:, 0].numpy() * max_dim[1]
+    points[:, 2] = _xy_to_z(xy, plane_normal, plane_offset).squeeze().detach().numpy() * max_dim[2]
+
+    return points
+
+
 def _extract_pick_points(picks: "CopickPicks") -> np.ndarray:
     """Extract Nx3 point array from a CopickPicks object."""
     arr = np.empty((len(picks.points), 3))
@@ -111,13 +216,14 @@ def slab_from_picks(
     user_id: str,
     tomo_type: str = "wbp",
     voxel_spacing: float = 10.0,
+    method: str = "spline",
     grid_resolution: Tuple[int, int] = (5, 5),
     fit_resolution: Tuple[int, int] = (50, 50),
     num_iterations: int = 500,
     learning_rate: float = 0.1,
     **kwargs,
 ) -> Optional[Tuple["CopickMesh", Dict[str, int]]]:
-    """Create a closed slab mesh from two pick sets by fitting B-spline surfaces.
+    """Create a closed slab mesh from two pick sets by fitting surfaces.
 
     Args:
         picks1: First set of picks (e.g. top-layer).
@@ -128,7 +234,9 @@ def slab_from_picks(
         user_id: User ID for the output mesh.
         tomo_type: Type of tomogram (for determining volume dimensions).
         voxel_spacing: Voxel spacing of the tomogram.
-        grid_resolution: B-spline grid resolution (rows, cols).
+        method: Fitting method - "spline" for independent B-spline surfaces,
+            "parallel" for two parallel planes (shared normal, two offsets).
+        grid_resolution: B-spline grid resolution (rows, cols). Only used with method="spline".
         fit_resolution: Output mesh grid resolution (rows, cols).
         num_iterations: Number of optimizer iterations per surface.
         learning_rate: Learning rate for Adam optimizer.
@@ -152,15 +260,26 @@ def slab_from_picks(
         shape = zarr.open(tomo.zarr())["0"].shape
         max_dim = [d * voxel_spacing for d in shape[::-1]]  # x, y, z in physical units
 
-        logger.info(f"Fitting spline to {len(points1)} top-layer points...")
-        grid1 = fit_spline_surface(points1, max_dim, grid_resolution, num_iterations, learning_rate)
+        if method == "parallel":
+            logger.info(f"Fitting parallel planes to {len(points1)} + {len(points2)} points...")
+            plane_normal, offset1, offset2 = fit_parallel_planes_from_picks(
+                points1,
+                points2,
+                max_dim,
+                num_iterations,
+                learning_rate,
+            )
+            surface1 = evaluate_plane_on_grid(plane_normal, offset1, fit_resolution, max_dim)
+            surface2 = evaluate_plane_on_grid(plane_normal, offset2, fit_resolution, max_dim)
+        else:
+            logger.info(f"Fitting spline to {len(points1)} top-layer points...")
+            grid1 = fit_spline_surface(points1, max_dim, grid_resolution, num_iterations, learning_rate)
 
-        logger.info(f"Fitting spline to {len(points2)} bottom-layer points...")
-        grid2 = fit_spline_surface(points2, max_dim, grid_resolution, num_iterations, learning_rate)
+            logger.info(f"Fitting spline to {len(points2)} bottom-layer points...")
+            grid2 = fit_spline_surface(points2, max_dim, grid_resolution, num_iterations, learning_rate)
 
-        # Evaluate on regular grids
-        surface1 = evaluate_spline_on_grid(grid1, fit_resolution, max_dim)
-        surface2 = evaluate_spline_on_grid(grid2, fit_resolution, max_dim)
+            surface1 = evaluate_spline_on_grid(grid1, fit_resolution, max_dim)
+            surface2 = evaluate_spline_on_grid(grid2, fit_resolution, max_dim)
 
         # Create closed slab mesh
         mesh = triangulate_box(surface1, surface2, fit_resolution)
