@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import tqdm
 from copick.util.log import get_logger
-
 from copick_utils.converters.converter_common import store_mesh_with_stats
 from copick_utils.converters.lazy_converter import create_lazy_batch_converter
 from copick_utils.converters.slab_common import triangulate_box

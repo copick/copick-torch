@@ -6,7 +6,6 @@ from click_option_group import optgroup
 from copick.cli.util import add_config_option, add_debug_option
 from copick.util.log import get_logger
 from copick.util.uri import parse_copick_uri
-
 from copick_utils.cli.util import add_dual_input_options, add_output_option, add_tomogram_option, add_workers_option
 from copick_utils.util.config_models import create_dual_selector_config
 
@@ -134,7 +133,7 @@ def picks2slab(
     logger.info(f"Input 1: {input1_params['user_id']}/{input1_params['session_id']}")
     logger.info(f"Input 2: {input2_params['user_id']}/{input2_params['session_id']}")
     logger.info(
-        f"Target mesh: {output_params['object_name']} ({output_params['user_id']}/{output_params['session_id']})"
+        f"Target mesh: {output_params['object_name']} ({output_params['user_id']}/{output_params['session_id']})",
     )
     logger.info(f"Tomogram: {tomo_type}@{voxel_spacing}")
     logger.info(f"Grid resolution: {grid_resolution}, Fit resolution: {fit_resolution}")
