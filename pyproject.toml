@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "copick-torch"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
@@ -24,6 +24,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "torch",
+    "torch-cubic-spline-grids>=0.5.0",
     "monai",
     "dask",
     "einops",
@@ -81,6 +82,10 @@ test = [
 
 [project.scripts]
 coverage-report = "scripts.coverage_report:main"
+
+[project.entry-points."copick.convert.commands"]
+picks2slab = "copick_torch.entry_points.run_picks2slab:picks2slab"
+seg2slab = "copick_torch.entry_points.run_seg2slab:seg2slab"
 
 [project.entry-points."copick.process.commands"]
 downsample = "copick_torch.entry_points.run_downsample:downsample"
