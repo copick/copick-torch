@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.0](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.1...copick-torch-v1.1.0) (2026-04-15)
+
+
+### ✨ Features
+
+* 3D bandpass filtering and lazy loading ([#80](https://github.com/copick/copick-torch/issues/80)) ([118a388](https://github.com/copick/copick-torch/commit/118a38878fbb91496349658348e1b38d88b7f523))
+* Slab-fitting tools. ([#97](https://github.com/copick/copick-torch/issues/97)) ([79a3acb](https://github.com/copick/copick-torch/commit/79a3acb2af1675645f11816d9531ca613199f3c4))
+* Update dependencies. ([#90](https://github.com/copick/copick-torch/issues/90)) ([6d163ff](https://github.com/copick/copick-torch/commit/6d163ff210948b24b62300ce65759ec114eef07d))
+
+
+### 🐞 Bug Fixes
+
+* bump chanzuckerberg/github-actions from 6.11.1 to 6.13.0 ([#87](https://github.com/copick/copick-torch/issues/87)) ([d871e69](https://github.com/copick/copick-torch/commit/d871e6995a2d8b0090b8dbc18fc77cdaec492753))
+* bump chanzuckerberg/github-actions from 6.13.0 to 6.20.0 ([#96](https://github.com/copick/copick-torch/issues/96)) ([ae5cbee](https://github.com/copick/copick-torch/commit/ae5cbeeee4652abb074e3f5d0595655c55481a34))
+* bump codecov/codecov-action from 5 to 6 ([#94](https://github.com/copick/copick-torch/issues/94)) ([5887e46](https://github.com/copick/copick-torch/commit/5887e462c5b7e2245d2fa893b3a9c101b94301d9))
+* improve CLI speed and update tests ([#88](https://github.com/copick/copick-torch/issues/88)) ([b105985](https://github.com/copick/copick-torch/commit/b105985cba26048afc40bb2bf2d22dd6ab088438))
+
 ## [1.0.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.0...copick-torch-v1.0.1) (2025-12-03)
 
 
