@@ -52,7 +52,7 @@ def array_to_nifti(data: np.ndarray, voxel_size_angstrom: float):
     Spacing is converted from Angstroms to nanometres (÷10) so that
     nnUNet's patch-size planner sees reasonable numbers.
     """
-    import SimpleITK as sitk
+    import SimpleITK as sitk  # noqa: N813
 
     spacing_nm = float(voxel_size_angstrom) / 10.0
     img = sitk.GetImageFromArray(data)
@@ -92,7 +92,7 @@ def load_segmentation(root, seg_uri: str, run_name: str) -> np.ndarray:
 def _process_train_run(args):
     """Worker: load one training tomogram + segmentation and write nii.gz files."""
     run_name, root, vol_uri, seg_uri, voxel_size, images_tr, labels_tr = args
-    import SimpleITK as sitk
+    import SimpleITK as sitk  # noqa: N813
 
     case_id = run_to_case_id(run_name)
     try:
@@ -115,7 +115,7 @@ def _process_train_run(args):
 def _process_test_run(args):
     """Worker: load one test tomogram and write nii.gz file."""
     run_name, root, vol_uri, voxel_size, images_ts = args
-    import SimpleITK as sitk
+    import SimpleITK as sitk  # noqa: N813
 
     case_id = run_to_case_id(run_name)
     try:
@@ -174,7 +174,7 @@ def convert(cfg: dict):
     skipped = []
     print(
         f"Attempting to convert {len(train_run_ids)} training runs "
-        f"(tomo={vol_uri}, seg={seg_uri}, num_workers={num_workers})..."
+        f"(tomo={vol_uri}, seg={seg_uri}, num_workers={num_workers})...",
     )
     train_args = [(run_name, root, vol_uri, seg_uri, voxel_size, images_tr, labels_tr) for run_name in train_run_ids]
     with ThreadPoolExecutor(max_workers=num_workers) as pool:
@@ -261,7 +261,12 @@ def convert(cfg: dict):
 )
 @click.option("-dname", "--dataset-name", type=str, required=True, help="nnUNet dataset name")
 @click.option(
-    "-raw", "--raw", "nnunet_raw", type=click.Path(), required=True, help="Path to nnunet_raw output directory"
+    "-raw",
+    "--raw",
+    "nnunet_raw",
+    type=click.Path(),
+    required=True,
+    help="Path to nnunet_raw output directory",
 )
 @click.option(
     "-j",

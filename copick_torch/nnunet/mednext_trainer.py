@@ -59,10 +59,14 @@ class _MedNeXtTrainerBase(nnUNetTrainer):
 # ── Small (S) ────────────────────────────────────────────────────────────────
 
 
-class nnUNetTrainerMedNeXtS_kernel3(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtS_kernel3(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,
@@ -74,10 +78,14 @@ class nnUNetTrainerMedNeXtS_kernel3(_MedNeXtTrainerBase):
         )
 
 
-class nnUNetTrainerMedNeXtS_kernel5(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtS_kernel5(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,
@@ -92,10 +100,14 @@ class nnUNetTrainerMedNeXtS_kernel5(_MedNeXtTrainerBase):
 # ── Base (B) ─────────────────────────────────────────────────────────────────
 
 
-class nnUNetTrainerMedNeXtB_kernel3(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtB_kernel3(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,
@@ -107,10 +119,14 @@ class nnUNetTrainerMedNeXtB_kernel3(_MedNeXtTrainerBase):
         )
 
 
-class nnUNetTrainerMedNeXtB_kernel5(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtB_kernel5(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,
@@ -125,10 +141,14 @@ class nnUNetTrainerMedNeXtB_kernel5(_MedNeXtTrainerBase):
 # ── Medium (M) ───────────────────────────────────────────────────────────────
 
 
-class nnUNetTrainerMedNeXtM_kernel3(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtM_kernel3(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,
@@ -141,10 +161,14 @@ class nnUNetTrainerMedNeXtM_kernel3(_MedNeXtTrainerBase):
         )
 
 
-class nnUNetTrainerMedNeXtM_kernel5(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtM_kernel5(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,
@@ -160,10 +184,14 @@ class nnUNetTrainerMedNeXtM_kernel5(_MedNeXtTrainerBase):
 # ── Large (L) ────────────────────────────────────────────────────────────────
 
 
-class nnUNetTrainerMedNeXtL_kernel3(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtL_kernel3(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,
@@ -176,10 +204,14 @@ class nnUNetTrainerMedNeXtL_kernel3(_MedNeXtTrainerBase):
         )
 
 
-class nnUNetTrainerMedNeXtL_kernel5(_MedNeXtTrainerBase):
+class nnUNetTrainerMedNeXtL_kernel5(_MedNeXtTrainerBase):  # noqa: N801
     @staticmethod
     def build_network_architecture(
-        plans_manager, configuration_manager, num_input_channels, num_output_channels, enable_deep_supervision=True
+        plans_manager,
+        configuration_manager,
+        num_input_channels,
+        num_output_channels,
+        enable_deep_supervision=True,
     ):
         return _build_mednext(
             num_input_channels,

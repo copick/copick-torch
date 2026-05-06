@@ -165,7 +165,11 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
     help="nnUNet dataset ID (must match the one used in prepare)",
 )
 @click.option(
-    "-n", "--dataset-name", type=str, required=True, help="nnUNet dataset name (must match the one used in prepare)"
+    "-n",
+    "--dataset-name",
+    type=str,
+    required=True,
+    help="nnUNet dataset name (must match the one used in prepare)",
 )
 @click.option("-r", "--raw", "nnunet_raw", type=click.Path(), required=True, help="Path to nnunet_raw directory")
 @click.option("-pre", "--preprocessed", type=click.Path(), required=True, help="Path to nnunet_preprocessed directory")
@@ -203,10 +207,24 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
     help="Skip nnUNetv2_plan_and_preprocess (useful if already done).",
 )
 @click.option(
-    "-ngpus", "--num-gpus", default=1, show_default=True, type=int, help="Number of GPUs for distributed training."
+    "-ngpus",
+    "--num-gpus",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Number of GPUs for distributed training.",
 )
 def cli(
-    dataset_id, dataset_name, nnunet_raw, preprocessed, results, configuration, folds, model, skip_preprocess, num_gpus
+    dataset_id,
+    dataset_name,
+    nnunet_raw,
+    preprocessed,
+    results,
+    configuration,
+    folds,
+    model,
+    skip_preprocess,
+    num_gpus,
 ):
     """Plan, preprocess, and train nnUNet on a CoPick dataset."""
     cfg = {

@@ -16,8 +16,12 @@ CLI:
 """
 
 import os
-import pprint
 import warnings
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
 
 # nnunetv2 emits warnings when its path env-vars are unset; irrelevant for inference.
 warnings.filterwarnings("ignore", message="nnUNet_raw")
@@ -26,7 +30,7 @@ warnings.filterwarnings("ignore", message="nnUNet_results")
 
 os.environ.setdefault("NUMEXPR_MAX_THREADS", "16")
 
-import click
+import click  # noqa: E402
 
 # ── trainer class resolution ──────────────────────────────────────────────────
 
@@ -55,7 +59,7 @@ def _resolve_trainer_class(trainer_name: str):
 
         check_mednext_installed()
         try:
-            from nnunetv2.training.nnUNetTrainer.variants import nnUNetTrainerMedNeXt as _mn_mod
+            from nnunetv2.training.nnUNetTrainer.variants import nnUNetTrainerMedNeXt as _mn_mod  # noqa: N813
 
             return getattr(_mn_mod, trainer_name)
         except (ImportError, AttributeError):
@@ -80,7 +84,7 @@ def _resolve_trainer_class(trainer_name: str):
 # ── predictor ─────────────────────────────────────────────────────────────────
 
 
-class single_gpu_nnUNetPredictor:
+class single_gpu_nnUNetPredictor:  # noqa: N801
     """
     nnUNet inference wrapper that accepts individual arrays rather than a folder.
 
@@ -195,7 +199,7 @@ class single_gpu_nnUNetPredictor:
         )
 
         print(
-            f"Loaded nnUNet model  trainer={trainer_name}  config={configuration_name}  folds={len(weights)}  device={device}"
+            f"Loaded nnUNet model  trainer={trainer_name}  config={configuration_name}  folds={len(weights)}  device={device}",
         )
 
     def predict(self, tomogram: "np.ndarray", voxel_size_angstrom: float = 10.0) -> "np.ndarray":
@@ -258,13 +262,13 @@ class single_gpu_nnUNetPredictor:
             _, voxel_size_str = tomogram_uri.split("@")
             voxel_size = float(voxel_size_str)
         except ValueError:
-            raise ValueError(f"tomogram_uri must be 'algorithm@voxel_size', got: {tomogram_uri!r}")
+            raise ValueError(f"tomogram_uri must be 'algorithm@voxel_size', got: {tomogram_uri!r}") from None
 
         try:
             seg_name, rest = seg_uri.split(":")
             user_id, session_id = rest.split("/")
         except ValueError:
-            raise ValueError(f"seg_uri must be 'name:user_id/session_id', got: {seg_uri!r}")
+            raise ValueError(f"seg_uri must be 'name:user_id/session_id', got: {seg_uri!r}") from None
 
         root = copick.from_file(copick_config)
         runs = root.runs if run_ids is None else [root.get_run(r) for r in run_ids]
@@ -291,8 +295,6 @@ class single_gpu_nnUNetPredictor:
 
 
 # ── multi-GPU inference ────────────────────────────────────────────────────────
-
-from dataclasses import dataclass, field
 
 
 @dataclass
@@ -333,7 +335,7 @@ def _nnunet_worker(rank: int, jobs: list):
         )
 
 
-class nnUNetPredictor:
+class nnUNetPredictor:  # noqa: N801
     """
     Universal nnUNet predictor — automatically uses all available GPUs for batch_predict.
 
@@ -414,7 +416,7 @@ class nnUNetPredictor:
         }
 
         print("\nParameters for Inference (nnUNet Prediction):")
-        pprint.pprint(params)
+        print(json.dumps(params, indent=2))
         print()
 
         root = copick.from_file(copick_config)
