@@ -36,6 +36,8 @@ dependencies = [
     "zarr",
     "mrcfile",
     "gdown",
+    "nnunetv2",
+    "SimpleITK",    
     "membrain-seg",
     "numcodecs<0.16.0",
     "pandas>=2.2.3",
@@ -45,6 +47,7 @@ dependencies = [
     "scikit-learn>=1.6.1",
     "torchvision>=0.21.0",
 ]
+
 authors = [
     {name = "Kyle Harrington", email = "czi@kyleharrington.com"},
     { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" },
@@ -86,13 +89,18 @@ coverage-report = "scripts.coverage_report:main"
 [project.entry-points."copick.convert.commands"]
 picks2slab = "copick_torch.entry_points.run_picks2slab:picks2slab"
 seg2slab = "copick_torch.entry_points.run_seg2slab:seg2slab"
+nnunet = "copick_torch.nnunet.prepare:cli"
 
 [project.entry-points."copick.process.commands"]
 downsample = "copick_torch.entry_points.run_downsample:downsample"
 bandpass = "copick_torch.entry_points.run_filter3d:bandpass"
 
+[project.entry-points."copick.training.commands"]
+nnunet = "copick_torch.nnunet.train:cli"
+
 [project.entry-points."copick.inference.commands"]
 membrain-seg = "copick_torch.entry_points.run_membrane_seg:membrain_seg"
+nnunet = "copick_torch.nnunet.predict:cli"
 
 [tool.hatch.version]
 path = "copick_torch/__init__.py"
