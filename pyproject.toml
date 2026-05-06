@@ -37,7 +37,7 @@ dependencies = [
     "mrcfile",
     "gdown",
     "nnunetv2",
-    "SimpleITK",    
+    "SimpleITK",
     "membrain-seg",
     "numcodecs<0.16.0",
     "pandas>=2.2.3",

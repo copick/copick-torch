@@ -14,7 +14,10 @@ Full CoPick project (auto multi-GPU):
 CLI:
     copick-torch nnunet segment -c config.json -p plans.json -d dataset.json -w checkpoint.pth -uri wbp@10.0
 """
-import os, warnings, pprint
+
+import os
+import pprint
+import warnings
 
 # nnunetv2 emits warnings when its path env-vars are unset; irrelevant for inference.
 warnings.filterwarnings("ignore", message="nnUNet_raw")
@@ -27,6 +30,7 @@ import click
 
 # ── trainer class resolution ──────────────────────────────────────────────────
 
+
 def _resolve_trainer_class(trainer_name: str):
     """
     Return the trainer class for the given name.
@@ -36,28 +40,30 @@ def _resolve_trainer_class(trainer_name: str):
     scans the trainer directory — slow but only needed once per session.
     """
     _DIRECT = {
-        "nnUNetTrainer":
-            "nnunetv2.training.nnUNetTrainer.nnUNetTrainer::nnUNetTrainer",
-        "nnUNetTrainerNoMirroring":
-            "nnunetv2.training.nnUNetTrainer.variants.training_length_and_nsteps.nnUNetTrainerNoMirroring::nnUNetTrainerNoMirroring",
+        "nnUNetTrainer": "nnunetv2.training.nnUNetTrainer.nnUNetTrainer::nnUNetTrainer",
+        "nnUNetTrainerNoMirroring": "nnunetv2.training.nnUNetTrainer.variants.training_length_and_nsteps.nnUNetTrainerNoMirroring::nnUNetTrainerNoMirroring",
     }
     if trainer_name in _DIRECT:
         import importlib
+
         module_path, class_name = _DIRECT[trainer_name].split("::")
         mod = importlib.import_module(module_path)
         return getattr(mod, class_name)
 
     if "MedNeXt" in trainer_name:
         from copick_torch.nnunet.utils import check_mednext_installed
+
         check_mednext_installed()
         try:
             from nnunetv2.training.nnUNetTrainer.variants import nnUNetTrainerMedNeXt as _mn_mod
+
             return getattr(_mn_mod, trainer_name)
         except (ImportError, AttributeError):
             pass
 
     import nnunetv2
     from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+
     cls = recursive_find_python_class(
         os.path.join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
         trainer_name,
@@ -66,12 +72,13 @@ def _resolve_trainer_class(trainer_name: str):
     if cls is None:
         raise RuntimeError(
             f"Trainer class '{trainer_name}' not found. "
-            "For MedNeXt models, run `copick-torch nnunet train` once to register the trainer."
+            "For MedNeXt models, run `copick-torch nnunet train` once to register the trainer.",
         )
     return cls
 
 
 # ── predictor ─────────────────────────────────────────────────────────────────
+
 
 class single_gpu_nnUNetPredictor:
     """
@@ -103,10 +110,13 @@ class single_gpu_nnUNetPredictor:
         use_mirroring: bool = True,
         device=None,
     ):
-        from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+        import inspect
+        import json
+
+        import torch
         from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor as _Pred
+        from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
         from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
-        import inspect, json, torch
 
         if device is None:
             device = torch.device("cuda", 0) if torch.cuda.is_available() else torch.device("cpu")
@@ -127,16 +137,16 @@ class single_gpu_nnUNetPredictor:
         for i, w in enumerate(weights):
             ckpt = torch.load(w, map_location="cpu", weights_only=False)
             if i == 0:
-                trainer_name       = ckpt["trainer_name"]
+                trainer_name = ckpt["trainer_name"]
                 configuration_name = ckpt["init_args"]["configuration"]
-                mirroring_axes     = ckpt.get("inference_allowed_mirroring_axes")
+                mirroring_axes = ckpt.get("inference_allowed_mirroring_axes")
             parameters.append(ckpt["network_weights"])
 
         configuration_manager = plans_manager.get_configuration(configuration_name)
 
         trainer_class = _resolve_trainer_class(trainer_name)
 
-        num_input_channels  = determine_num_input_channels(plans_manager, configuration_manager, dataset_dict)
+        num_input_channels = determine_num_input_channels(plans_manager, configuration_manager, dataset_dict)
         num_output_channels = plans_manager.get_label_manager(dataset_dict).num_segmentation_heads
 
         # Build with deep_supervision=True so the architecture matches the checkpoint.
@@ -144,8 +154,10 @@ class single_gpu_nnUNetPredictor:
         sig = inspect.signature(trainer_class.build_network_architecture)
         if "plans_manager" in sig.parameters:
             network = trainer_class.build_network_architecture(
-                plans_manager, configuration_manager,
-                num_input_channels, num_output_channels,
+                plans_manager,
+                configuration_manager,
+                num_input_channels,
+                num_output_channels,
                 enable_deep_supervision=True,
             )
         else:
@@ -153,7 +165,8 @@ class single_gpu_nnUNetPredictor:
                 configuration_manager.network_arch_class_name,
                 configuration_manager.network_arch_init_kwargs,
                 configuration_manager.network_arch_init_kwargs_req_import,
-                num_input_channels, num_output_channels,
+                num_input_channels,
+                num_output_channels,
                 enable_deep_supervision=True,
             )
 
@@ -181,7 +194,9 @@ class single_gpu_nnUNetPredictor:
             inference_allowed_mirroring_axes=mirroring_axes,
         )
 
-        print(f"Loaded nnUNet model  trainer={trainer_name}  config={configuration_name}  folds={len(weights)}  device={device}")
+        print(
+            f"Loaded nnUNet model  trainer={trainer_name}  config={configuration_name}  folds={len(weights)}  device={device}"
+        )
 
     def predict(self, tomogram: "np.ndarray", voxel_size_angstrom: float = 10.0) -> "np.ndarray":
         """
@@ -207,7 +222,8 @@ class single_gpu_nnUNetPredictor:
         props = {"spacing": [spacing_nm, spacing_nm, spacing_nm]}
 
         seg = self._predictor.predict_single_npy_array(
-            tomogram, props,
+            tomogram,
+            props,
             segmentation_previous_stage=None,
             output_file_truncated=None,
             save_or_return_probabilities=False,
@@ -234,8 +250,8 @@ class single_gpu_nnUNetPredictor:
             Specific run names to process.  None = all runs in the project.
         """
         import copick
-        from copick_utils.io import writers
         from copick.util.uri import resolve_copick_objects
+        from copick_utils.io import writers
         from tqdm import tqdm
 
         try:
@@ -263,7 +279,8 @@ class single_gpu_nnUNetPredictor:
 
             seg = self.predict(vols[0].numpy(), voxel_size_angstrom=voxel_size)
             writers.segmentation(
-                run, seg,
+                run,
+                seg,
                 voxel_size=voxel_size,
                 name=seg_name,
                 user_id=user_id,
@@ -294,6 +311,7 @@ class _NnUNetJobSpec:
 def _nnunet_worker(rank: int, jobs: list):
     """One process per GPU — loads the model on cuda:{rank} and processes its shard."""
     import torch
+
     torch.cuda.set_device(rank)
     torch.set_num_threads(max(1, (os.cpu_count() or 1) // max(1, torch.cuda.device_count())))
 
@@ -338,12 +356,12 @@ class nnUNetPredictor:
         tile_step_size: float = 0.5,
         use_mirroring: bool = True,
     ):
-        self.plans          = plans
-        self.dataset_json   = dataset_json
-        self.weights        = [weights] if isinstance(weights, str) else weights
+        self.plans = plans
+        self.dataset_json = dataset_json
+        self.weights = [weights] if isinstance(weights, str) else weights
         self.tile_step_size = tile_step_size
-        self.use_mirroring  = use_mirroring
-        self._single        = None  # lazy-loaded on first predict() call
+        self.use_mirroring = use_mirroring
+        self._single = None  # lazy-loaded on first predict() call
 
     def _get_single_predictor(self):
         if self._single is None:
@@ -361,8 +379,11 @@ class nnUNetPredictor:
         return self._get_single_predictor().predict(tomogram, voxel_size_angstrom)
 
     def save_parameters(self, copick_config: str, tomogram_uri: str, seg_uri: str):
+        import json
+
+        import copick
+
         from copick_torch.nnunet.utils import remove_prefix, save_parameters_yaml
-        import copick, json
 
         seg_name, rest = seg_uri.split(":")
         user_id, session_id = rest.split("/")
@@ -393,7 +414,8 @@ class nnUNetPredictor:
         }
 
         print("\nParameters for Inference (nnUNet Prediction):")
-        pprint.pprint(params); print()
+        pprint.pprint(params)
+        print()
 
         root = copick.from_file(copick_config)
         overlay_root = remove_prefix(root.config.overlay_root)
@@ -424,8 +446,9 @@ class nnUNetPredictor:
         run_ids : list[str] | None
             Specific run names to process.  None = all runs in the project.
         """
+        import copick
+        import torch
         import torch.multiprocessing as mp
-        import torch, copick
 
         self.save_parameters(copick_config, tomogram_uri, seg_uri)
 
@@ -434,7 +457,7 @@ class nnUNetPredictor:
             raise RuntimeError("No CUDA GPUs available.")
 
         if run_ids is None:
-            root    = copick.from_file(copick_config)
+            root = copick.from_file(copick_config)
             run_ids = [r.name for r in root.runs]
 
         if world_size == 1:
@@ -471,24 +494,30 @@ class nnUNetPredictor:
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
+
 @click.command("nnunet", no_args_is_help=True)
-@click.option("-c", "--config", required=True, type=click.Path(exists=True),
-              help="Path to copick config.json")
-@click.option("-p", "--plans", required=True, type=click.Path(exists=True),
-              help="Path to nnunet plans.json")
-@click.option("-d", "--dataset", required=True, type=click.Path(exists=True),
-              help="Path to nnunet dataset.json")
-@click.option("-w", "--weights", required=True, type=click.Path(exists=True), multiple=True,
-              help="Path to checkpoint .pth (repeat for fold ensembling, "
-                   "e.g. -w fold_0/checkpoint_best.pth -w fold_1/checkpoint_best.pth)")
-@click.option("-turi", "--tomo-uri", type=str, default="wbp@10.0",
-              help="Tomogram URI to predict")
-@click.option("--tta", type=bool, default=True,
-              help="Enable mirroring TTA.")
-@click.option("--run-ids", "-runs", type=str, default=None,
-              help="CoPick run IDs to predict (comma-separated).")
-@click.option("-suri", "--seg-uri", type=str, default="predict:nnunet/1",
-              help="Segmentation URI to write (name:user_id/session_id)")
+@click.option("-c", "--config", required=True, type=click.Path(exists=True), help="Path to copick config.json")
+@click.option("-p", "--plans", required=True, type=click.Path(exists=True), help="Path to nnunet plans.json")
+@click.option("-d", "--dataset", required=True, type=click.Path(exists=True), help="Path to nnunet dataset.json")
+@click.option(
+    "-w",
+    "--weights",
+    required=True,
+    type=click.Path(exists=True),
+    multiple=True,
+    help="Path to checkpoint .pth (repeat for fold ensembling, "
+    "e.g. -w fold_0/checkpoint_best.pth -w fold_1/checkpoint_best.pth)",
+)
+@click.option("-turi", "--tomo-uri", type=str, default="wbp@10.0", help="Tomogram URI to predict")
+@click.option("--tta", type=bool, default=True, help="Enable mirroring TTA.")
+@click.option("--run-ids", "-runs", type=str, default=None, help="CoPick run IDs to predict (comma-separated).")
+@click.option(
+    "-suri",
+    "--seg-uri",
+    type=str,
+    default="predict:nnunet/1",
+    help="Segmentation URI to write (name:user_id/session_id)",
+)
 def cli(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri):
     """Run nnUNet inference on CoPick tomograms and write predictions back."""
     run_predict(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri)

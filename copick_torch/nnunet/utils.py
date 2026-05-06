@@ -1,5 +1,7 @@
-import subprocess, sys, yaml
+import subprocess
+import sys
 
+import yaml
 
 MEDNEXT_INSTALL = "pip install git+https://github.com/MIC-DKFZ/MedNeXt.git"
 
@@ -29,17 +31,13 @@ def _run(cmd: list[str], env: dict):
 
 def _register_mednext_trainer():
     """Copy copick-torch's MedNeXt trainer into nnunetv2's trainer discovery directory."""
+    import shutil
     from pathlib import Path
-    import shutil, nnunetv2
+
+    import nnunetv2
 
     src = Path(__file__).parent / "mednext_trainer.py"
-    dst = (
-        Path(nnunetv2.__path__[0])
-        / "training"
-        / "nnUNetTrainer"
-        / "variants"
-        / "nnUNetTrainerMedNeXt.py"
-    )
+    dst = Path(nnunetv2.__path__[0]) / "training" / "nnUNetTrainer" / "variants" / "nnUNetTrainerMedNeXt.py"
 
     if not dst.exists():
         shutil.copy2(src, dst)
@@ -55,13 +53,13 @@ def _scale_batch_size_for_ddp(cfg: dict, model: str, num_gpus: int):
     so each GPU still processes the same number of samples (same memory footprint).
     The updated plans file is written back in-place; re-run plan_and_preprocess to reset.
     """
-    from pathlib import Path
     import json
+    from pathlib import Path
 
-    plans_name    = "nnUNetResEncUNetLPlans" if model == "resnecl" else "nnUNetPlans"
+    plans_name = "nnUNetResEncUNetLPlans" if model == "resnecl" else "nnUNetPlans"
     configuration = cfg.get("configuration", "3d_fullres")
-    dataset_dir   = f"Dataset{cfg['dataset_id']:03d}_{cfg['dataset_name']}"
-    plans_file    = Path(cfg["nnunet_preprocessed"]) / dataset_dir / f"{plans_name}.json"
+    dataset_dir = f"Dataset{cfg['dataset_id']:03d}_{cfg['dataset_name']}"
+    plans_file = Path(cfg["nnunet_preprocessed"]) / dataset_dir / f"{plans_name}.json"
 
     if not plans_file.exists():
         return
@@ -75,8 +73,8 @@ def _scale_batch_size_for_ddp(cfg: dict, model: str, num_gpus: int):
         return
 
     per_gpu_key = "_copick_torch_per_gpu_batch_size"
-    per_gpu_bs  = plans.get(per_gpu_key, current)
-    scaled      = per_gpu_bs * num_gpus
+    per_gpu_bs = plans.get(per_gpu_key, current)
+    scaled = per_gpu_bs * num_gpus
 
     if current == scaled:
         return
@@ -88,7 +86,7 @@ def _scale_batch_size_for_ddp(cfg: dict, model: str, num_gpus: int):
 
     print(
         f"  [plans] batch_size scaled {per_gpu_bs} → {scaled} "
-        f"({per_gpu_bs}/GPU × {num_gpus} GPUs, same per-GPU memory)."
+        f"({per_gpu_bs}/GPU × {num_gpus} GPUs, same per-GPU memory).",
     )
 
 
@@ -110,13 +108,15 @@ def save_parameters_yaml(params: dict, output_path: str):
 
     _SmartDumper.add_representer(list, _represent_list)
     with open(output_path, "w") as f:
-        yaml.dump(params, f, Dumper=_SmartDumper, default_flow_style=False,
-                  sort_keys=False, width=100, indent=2)
+        yaml.dump(params, f, Dumper=_SmartDumper, default_flow_style=False, sort_keys=False, width=100, indent=2)
 
 
 def get_config(config_path: str, name: str, process: str, user_id=None, session_id=None) -> dict:
     """Read a process config YAML from the CoPick overlay/static logs directory."""
-    import os, glob, copick
+    import glob
+    import os
+
+    import copick
 
     root = copick.from_file(config_path)
     overlay_root = remove_prefix(root.config.overlay_root)

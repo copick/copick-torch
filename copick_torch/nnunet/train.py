@@ -19,18 +19,19 @@ Supported models (--model flag):
   mednext_m_k5        MedNeXt Medium, kernel 5      → nnUNetTrainerMedNeXtM_kernel5
   mednext_l_k5        MedNeXt Large,  kernel 5      → nnUNetTrainerMedNeXtL_kernel5
 """
+
 import click
 
 # MedNeXt trainers require: pip install git+https://github.com/MIC-DKFZ/MedNeXt.git
 # Trainer classes are defined in copick_torch/nnunet/mednext_trainer.py and auto-registered
 # into nnunetv2's trainer directory on first use.
 MODEL_TO_TRAINER = {
-    "nnunet":       "nnUNetTrainer",
-    "resnecl":      "nnUNetTrainer",
-    "mednext_s":    "nnUNetTrainerMedNeXtS_kernel3",
-    "mednext_b":    "nnUNetTrainerMedNeXtB_kernel3",
-    "mednext_m":    "nnUNetTrainerMedNeXtM_kernel3",
-    "mednext_l":    "nnUNetTrainerMedNeXtL_kernel3",
+    "nnunet": "nnUNetTrainer",
+    "resnecl": "nnUNetTrainer",
+    "mednext_s": "nnUNetTrainerMedNeXtS_kernel3",
+    "mednext_b": "nnUNetTrainerMedNeXtB_kernel3",
+    "mednext_m": "nnUNetTrainerMedNeXtM_kernel3",
+    "mednext_l": "nnUNetTrainerMedNeXtL_kernel3",
     "mednext_s_k5": "nnUNetTrainerMedNeXtS_kernel5",
     "mednext_b_k5": "nnUNetTrainerMedNeXtB_kernel5",
     "mednext_m_k5": "nnUNetTrainerMedNeXtM_kernel5",
@@ -46,8 +47,9 @@ def _parse_int_list(value: str) -> list[int]:
 
 def resolve_trainer(cfg: dict, model_override: str | None) -> tuple[str, str]:
     """Return (model_name, trainer_class). Priority: CLI flag > config key > 'nnunet' default."""
-    from copick_torch.nnunet.utils import check_mednext_installed
     import sys
+
+    from copick_torch.nnunet.utils import check_mednext_installed
 
     model = model_override or cfg.get("model", "nnunet")
     if model not in MODEL_TO_TRAINER:
@@ -60,13 +62,13 @@ def resolve_trainer(cfg: dict, model_override: str | None) -> tuple[str, str]:
 
 def set_nnunet_env(cfg: dict) -> dict:
     """Set the three nnUNet path environment variables and return the updated env."""
-    from pathlib import Path
     import os
+    from pathlib import Path
 
     env = os.environ.copy()
-    env["nnUNet_raw"]          = str(cfg["nnunet_raw"])
+    env["nnUNet_raw"] = str(cfg["nnunet_raw"])
     env["nnUNet_preprocessed"] = str(cfg["nnunet_preprocessed"])
-    env["nnUNet_results"]      = str(cfg["nnunet_results"])
+    env["nnUNet_results"] = str(cfg["nnunet_results"])
 
     for key in ("nnunet_preprocessed", "nnunet_results"):
         Path(cfg[key]).mkdir(parents=True, exist_ok=True)
@@ -79,8 +81,10 @@ def plan_and_preprocess(cfg: dict, env: dict, model: str):
 
     cmd = [
         "nnUNetv2_plan_and_preprocess",
-        "-d", str(cfg["dataset_id"]),
-        "-c", cfg.get("configuration", "3d_fullres"),
+        "-d",
+        str(cfg["dataset_id"]),
+        "-c",
+        cfg.get("configuration", "3d_fullres"),
         "--verify_dataset_integrity",
     ]
     if model == "resnecl":
@@ -91,10 +95,10 @@ def plan_and_preprocess(cfg: dict, env: dict, model: str):
 def checkpoint_exists(cfg: dict, trainer: str, model: str, fold: int) -> bool:
     from pathlib import Path
 
-    plans         = "nnUNetResEncUNetLPlans" if model == "resnecl" else "nnUNetPlans"
+    plans = "nnUNetResEncUNetLPlans" if model == "resnecl" else "nnUNetPlans"
     configuration = cfg.get("configuration", "3d_fullres")
-    dataset_dir   = f"Dataset{cfg['dataset_id']:03d}_{cfg['dataset_name']}"
-    checkpoint    = (
+    dataset_dir = f"Dataset{cfg['dataset_id']:03d}_{cfg['dataset_name']}"
+    checkpoint = (
         Path(cfg["nnunet_results"])
         / dataset_dir
         / f"{trainer}__{plans}__{configuration}"
@@ -105,12 +109,14 @@ def checkpoint_exists(cfg: dict, trainer: str, model: str, fold: int) -> bool:
 
 
 def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
-    from copick_torch.nnunet.utils import _scale_batch_size_for_ddp, _run
-    import shutil, sys
+    import shutil
+    import sys
 
-    dataset_id    = cfg["dataset_id"]
+    from copick_torch.nnunet.utils import _run, _scale_batch_size_for_ddp
+
+    dataset_id = cfg["dataset_id"]
     configuration = cfg.get("configuration", "3d_fullres")
-    folds         = cfg.get("folds", [0])
+    folds = cfg.get("folds", [0])
 
     nnunet_train_bin = shutil.which("nnUNetv2_train")
     if nnunet_train_bin is None:
@@ -122,7 +128,8 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
 
         if "nnUNet_n_proc_da" not in env:
             import os
-            total_cpu  = os.cpu_count() or 16
+
+            total_cpu = os.cpu_count() or 16
             per_gpu_da = max(2, total_cpu // num_gpus)
             env["nnUNet_n_proc_da"] = str(per_gpu_da)
             print(f"  [DA workers] nnUNet_n_proc_da={per_gpu_da} ({total_cpu} CPUs ÷ {num_gpus} GPUs)")
@@ -134,7 +141,8 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
             str(dataset_id),
             configuration,
             str(fold),
-            "-tr", trainer,
+            "-tr",
+            trainer,
         ]
         if model == "resnecl":
             train_cmd += ["-p", "nnUNetResEncUNetLPlans"]
@@ -148,43 +156,69 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
 
 
 @click.command("nnunet", no_args_is_help=True)
-@click.option("-id", "--dataset-id", type=int, required=False, default=1,
-              help="nnUNet dataset ID (must match the one used in prepare)")
-@click.option("-n", "--dataset-name", type=str, required=True,
-              help="nnUNet dataset name (must match the one used in prepare)")
-@click.option("-r", "--raw", "nnunet_raw", type=click.Path(), required=True,
-              help="Path to nnunet_raw directory")
-@click.option("-pre", "--preprocessed", type=click.Path(), required=True,
-              help="Path to nnunet_preprocessed directory")
-@click.option("-o", "--results", type=click.Path(), required=True,
-              help="Path to nnunet_results directory")
-@click.option("-cfg", "--configuration",
-              type=click.Choice(["3d_fullres", "3d_lowres", "3d_cascade_fullres"]),
-              default="3d_fullres", show_default=True,
-              help="nnUNet configuration to train")
-@click.option("-f", "--folds", type=str, default="0", show_default=True,
-              callback=lambda ctx, param, value: _parse_int_list(value) if value else [0],
-              help="Folds to train, e.g. 0 or 0,1,2,3,4")
-@click.option("-m", "--model", type=click.Choice(list(MODEL_TO_TRAINER)), default="nnunet",
-              show_default=True,
-              help="Model architecture to train. MedNeXt variants require nnunet-mednext.")
-@click.option("-skip", "--skip-preprocess", is_flag=True, default=False,
-              help="Skip nnUNetv2_plan_and_preprocess (useful if already done).")
-@click.option("-ngpus", "--num-gpus", default=1, show_default=True, type=int,
-              help="Number of GPUs for distributed training.")
-def cli(dataset_id, dataset_name, nnunet_raw, preprocessed, results,
-        configuration, folds, model, skip_preprocess, num_gpus):
+@click.option(
+    "-id",
+    "--dataset-id",
+    type=int,
+    required=False,
+    default=1,
+    help="nnUNet dataset ID (must match the one used in prepare)",
+)
+@click.option(
+    "-n", "--dataset-name", type=str, required=True, help="nnUNet dataset name (must match the one used in prepare)"
+)
+@click.option("-r", "--raw", "nnunet_raw", type=click.Path(), required=True, help="Path to nnunet_raw directory")
+@click.option("-pre", "--preprocessed", type=click.Path(), required=True, help="Path to nnunet_preprocessed directory")
+@click.option("-o", "--results", type=click.Path(), required=True, help="Path to nnunet_results directory")
+@click.option(
+    "-cfg",
+    "--configuration",
+    type=click.Choice(["3d_fullres", "3d_lowres", "3d_cascade_fullres"]),
+    default="3d_fullres",
+    show_default=True,
+    help="nnUNet configuration to train",
+)
+@click.option(
+    "-f",
+    "--folds",
+    type=str,
+    default="0",
+    show_default=True,
+    callback=lambda ctx, param, value: _parse_int_list(value) if value else [0],
+    help="Folds to train, e.g. 0 or 0,1,2,3,4",
+)
+@click.option(
+    "-m",
+    "--model",
+    type=click.Choice(list(MODEL_TO_TRAINER)),
+    default="nnunet",
+    show_default=True,
+    help="Model architecture to train. MedNeXt variants require nnunet-mednext.",
+)
+@click.option(
+    "-skip",
+    "--skip-preprocess",
+    is_flag=True,
+    default=False,
+    help="Skip nnUNetv2_plan_and_preprocess (useful if already done).",
+)
+@click.option(
+    "-ngpus", "--num-gpus", default=1, show_default=True, type=int, help="Number of GPUs for distributed training."
+)
+def cli(
+    dataset_id, dataset_name, nnunet_raw, preprocessed, results, configuration, folds, model, skip_preprocess, num_gpus
+):
     """Plan, preprocess, and train nnUNet on a CoPick dataset."""
     cfg = {
-        "dataset_id":          dataset_id,
-        "dataset_name":        dataset_name,
-        "nnunet_raw":          nnunet_raw,
+        "dataset_id": dataset_id,
+        "dataset_name": dataset_name,
+        "nnunet_raw": nnunet_raw,
         "nnunet_preprocessed": preprocessed,
-        "nnunet_results":      results,
-        "configuration":       configuration,
-        "folds":               folds,
+        "nnunet_results": results,
+        "configuration": configuration,
+        "folds": folds,
     }
-    env            = set_nnunet_env(cfg)
+    env = set_nnunet_env(cfg)
     model, trainer = resolve_trainer(cfg, model)
 
     if not skip_preprocess:
