@@ -32,10 +32,10 @@ MODEL_TO_TRAINER = {
     "mednext_b": "nnUNetTrainerMedNeXtB_kernel3",
     "mednext_m": "nnUNetTrainerMedNeXtM_kernel3",
     "mednext_l": "nnUNetTrainerMedNeXtL_kernel3",
-    "mednext_s_k5": "nnUNetTrainerMedNeXtS_kernel5",
-    "mednext_b_k5": "nnUNetTrainerMedNeXtB_kernel5",
-    "mednext_m_k5": "nnUNetTrainerMedNeXtM_kernel5",
-    "mednext_l_k5": "nnUNetTrainerMedNeXtL_kernel5",
+    # "mednext_s_k5": "nnUNetTrainerMedNeXtS_kernel5",
+    # "mednext_b_k5": "nnUNetTrainerMedNeXtB_kernel5",
+    # "mednext_m_k5": "nnUNetTrainerMedNeXtM_kernel5",
+    # "mednext_l_k5": "nnUNetTrainerMedNeXtL_kernel5",
 }
 
 MEDNEXT_MODELS = {k for k in MODEL_TO_TRAINER if k.startswith("mednext")}
@@ -173,7 +173,7 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
 )
 @click.option("-r", "--raw", "nnunet_raw", type=click.Path(), required=True, help="Path to nnunet_raw directory")
 @click.option("-pre", "--preprocessed", type=click.Path(), required=True, help="Path to nnunet_preprocessed directory")
-@click.option("-o", "--results", type=click.Path(), required=True, help="Path to nnunet_results directory")
+@click.option("-o", "--output", type=click.Path(), required=True, help="Path to nnunet_results directory")
 @click.option(
     "-cfg",
     "--configuration",
@@ -197,7 +197,7 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
     type=click.Choice(list(MODEL_TO_TRAINER)),
     default="nnunet",
     show_default=True,
-    help="Model architecture to train. MedNeXt variants require nnunet-mednext.",
+    help="Model architecture to train.",
 )
 @click.option(
     "-skip",
@@ -206,25 +206,16 @@ def train(cfg: dict, env: dict, model: str, trainer: str, num_gpus: int = 1):
     default=False,
     help="Skip nnUNetv2_plan_and_preprocess (useful if already done).",
 )
-@click.option(
-    "-ngpus",
-    "--num-gpus",
-    default=1,
-    show_default=True,
-    type=int,
-    help="Number of GPUs for distributed training.",
-)
 def cli(
     dataset_id,
     dataset_name,
     nnunet_raw,
     preprocessed,
-    results,
+    output,
     configuration,
     folds,
     model,
     skip_preprocess,
-    num_gpus,
 ):
     """Plan, preprocess, and train nnUNet on a CoPick dataset."""
     cfg = {
@@ -232,7 +223,7 @@ def cli(
         "dataset_name": dataset_name,
         "nnunet_raw": nnunet_raw,
         "nnunet_preprocessed": preprocessed,
-        "nnunet_results": results,
+        "nnunet_results": output,
         "configuration": configuration,
         "folds": folds,
     }
@@ -242,4 +233,4 @@ def cli(
     if not skip_preprocess:
         plan_and_preprocess(cfg, env, model)
 
-    train(cfg, env, model, trainer, num_gpus=num_gpus)
+    train(cfg, env, model, trainer, num_gpus=1)

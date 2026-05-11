@@ -224,7 +224,7 @@ def convert(cfg: dict):
         print(f"  Skipped runs   : {skipped}")
 
 
-@click.command("nnunet", no_args_is_help=True)
+@click.command("nnunet", no_args_is_help=True, context_settings={"show_default": True})
 @click.option("-c", "--config", required=True, type=click.Path(exists=True), help="Path to copick config.json")
 @click.option("-uri", "--tomo-uri", type=str, default="wbp@10.0", help="Tomogram URI to use for training")
 @click.option(
@@ -236,7 +236,7 @@ def convert(cfg: dict):
     help="Segmentation info as 'name' or 'name,user_id,session_id'",
 )
 @click.option(
-    "-truns",
+    "-train",
     "--train-run-ids",
     type=str,
     default=None,
@@ -244,7 +244,7 @@ def convert(cfg: dict):
     help="Training run IDs, e.g. run1,run2,run3. Default: all runs not in test set.",
 )
 @click.option(
-    "-tests",
+    "-test",
     "--test-run-ids",
     type=str,
     default=None,
@@ -252,18 +252,17 @@ def convert(cfg: dict):
     help="Test run IDs, e.g. run4,run5",
 )
 @click.option(
-    "-did",
+    "-id",
     "--dataset-id",
     type=int,
     required=False,
     default=1,
     help="nnUNet dataset ID (integer; becomes Dataset{id}_{name})",
 )
-@click.option("-dname", "--dataset-name", type=str, required=True, help="nnUNet dataset name")
+@click.option("-n", "--dataset-name", type=str, required=True, help="nnUNet dataset name")
 @click.option(
-    "-raw",
-    "--raw",
-    "nnunet_raw",
+    "-o",
+    "--output",
     type=click.Path(),
     required=True,
     help="Path to nnunet_raw output directory",
@@ -276,7 +275,7 @@ def convert(cfg: dict):
     type=int,
     help="Number of parallel worker threads for converting tomograms.",
 )
-def cli(config, tomo_uri, seg_info, train_run_ids, test_run_ids, dataset_id, dataset_name, nnunet_raw, num_workers):
+def cli(config, tomo_uri, seg_info, train_run_ids, test_run_ids, dataset_id, dataset_name, output, num_workers):
     """Convert a CoPick project to nnUNet raw dataset format (imagesTr / labelsTr / imagesTs)."""
     cfg = {
         "copick_config": config,
@@ -284,7 +283,7 @@ def cli(config, tomo_uri, seg_info, train_run_ids, test_run_ids, dataset_id, dat
         "seg_info": seg_info,
         "dataset_id": dataset_id,
         "dataset_name": dataset_name,
-        "nnunet_raw": nnunet_raw,
+        "nnunet_raw": output,
         "train_run_ids": train_run_ids or [],
         "test_run_ids": test_run_ids or [],
         "num_workers": num_workers,

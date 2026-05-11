@@ -125,11 +125,19 @@ def get_config(config_path: str, name: str, process: str, user_id=None, session_
     except Exception:
         static_root = None
 
+    # First chance: search for the most recent file matching the target name
     if session_id is None:
-        pattern = glob.glob(os.path.join(overlay_root, "logs", f"{process}_*{name}.yaml"))
+
+        # First chance: search for the most recent file matching the target name in the overlay root
+        pattern = glob.glob(os.path.join(overlay_root, "logs", f"{process}-*{name}.yaml"))
         if len(pattern) == 0 and static_root is not None:
-            pattern = glob.glob(os.path.join(static_root, "logs", f"{process}_*{name}.yaml"))
-        fname = pattern[-1]
+            pattern = glob.glob(os.path.join(static_root, "logs", f"{process}-*{name}.yaml"))
+
+        # Second chance: search for the most recent file matching the target name in the static root
+        if len(pattern) == 0:
+            raise FileNotFoundError(f"Target config file not found: {process}-*{name}.yaml")
+        else:
+            fname = pattern[-1]
     else:
         fname = f"{process}-{user_id}_{session_id}_{name}.yaml"
 
