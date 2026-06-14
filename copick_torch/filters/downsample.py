@@ -126,11 +126,6 @@ class FourierRescale3D:
         """
         in_depth, in_height, in_width = volume.shape[-3:]
 
-        # Check if dimensions are odd
-        d_is_odd = in_depth % 2
-        h_is_odd = in_height % 2
-        w_is_odd = in_width % 2
-
         # Calculate new dimensions
         extent_depth = in_depth * self.input_voxel_size[0]
         extent_height = in_height * self.input_voxel_size[1]
@@ -145,10 +140,16 @@ class FourierRescale3D:
         new_height = new_height - (new_height % 2)
         new_width = new_width - (new_width % 2)
 
-        # Calculate starting points with odd/even correction
-        start_d = (in_depth - new_depth) // 2 + (d_is_odd)
-        start_h = (in_height - new_height) // 2 + (h_is_odd)
-        start_w = (in_width - new_width) // 2 + (w_is_odd)
+        # Crop the central new_dim frequencies CENTERED ON THE DC BIN. After
+        # fftshift the DC sits at index in_dim//2 for BOTH even and odd in_dim, so
+        # start = in_dim//2 - new_dim//2 puts DC at local index new_dim//2 — which
+        # the following ifftshift returns to index 0 (the position ifftn expects).
+        # NOTE: the previous code added "+ is_odd" for odd input dims, shifting the
+        # crop one frequency bin off DC. That misplaced DC before ifftn and injected
+        # a half-Nyquist phase ramp.
+        start_d = in_depth // 2 - new_depth // 2
+        start_h = in_height // 2 - new_height // 2
+        start_w = in_width // 2 - new_width // 2
 
         return start_d, start_h, start_w, new_depth, new_height, new_width
 
