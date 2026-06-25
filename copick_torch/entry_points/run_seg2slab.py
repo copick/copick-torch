@@ -34,6 +34,36 @@ from copick_utils.util.config_models import create_simple_config
     help="Label index to extract from the segmentation.",
 )
 @optgroup.option(
+    "--method",
+    type=click.Choice(["spline", "coupled", "parallel", "iou"], case_sensitive=False),
+    default="coupled",
+    help="Surface fitting method: 'coupled' fits one shared curved surface with two offsets "
+    "(curved but exactly parallel slab); 'spline' fits two independent B-spline surfaces; "
+    "'parallel' fits two flat parallel planes to the extracted surface points; 'iou' fits two "
+    "flat parallel planes directly to the binary volume via intersection-over-union (legacy).",
+)
+@optgroup.option(
+    "--grid-resolution",
+    nargs=2,
+    type=int,
+    default=(5, 5),
+    help="B-spline knot grid resolution (rows cols). Used with --method spline and coupled.",
+)
+@optgroup.option(
+    "--regularization",
+    type=float,
+    default=0.0,
+    help="Curvature (bending-energy) penalty weight for --method spline and coupled; "
+    "higher = flatter. Ignored for --method parallel and iou.",
+)
+@optgroup.option(
+    "--surface-stride",
+    type=int,
+    default=1,
+    help="Column subsampling stride for surface-point extraction (>=1); bounds the point count "
+    "on large volumes. Ignored for --method iou.",
+)
+@optgroup.option(
     "--fit-resolution",
     nargs=2,
     type=int,
@@ -43,8 +73,8 @@ from copick_utils.util.config_models import create_simple_config
 @optgroup.option(
     "--num-iterations",
     type=int,
-    default=20,
-    help="Number of optimization iterations for plane fitting.",
+    default=500,
+    help="Number of optimization iterations for surface fitting.",
 )
 @optgroup.option(
     "--learning-rate",
@@ -61,6 +91,10 @@ def seg2slab(
     run_names,
     input_uri,
     label,
+    method,
+    grid_resolution,
+    regularization,
+    surface_stride,
     fit_resolution,
     num_iterations,
     learning_rate,
@@ -69,12 +103,14 @@ def seg2slab(
     debug,
 ):
     """
-    Fit parallel planes to a segmentation volume and create a closed slab mesh.
+    Fit a slab to a segmentation volume and create a closed slab mesh.
 
-    Extracts a single label from the segmentation, finds the largest connected
-    component, then fits two parallel planes (shared normal, different offsets)
-    by optimizing IoU. The fitted planes are connected with side walls to form
-    a closed, watertight box mesh.
+    Extracts a single label from the segmentation and finds the largest connected component.
+    For the 'spline'/'coupled'/'parallel' methods it then extracts top- and bottom-surface
+    point-clouds and fits a surface with the same machinery as ``picks2slab`` (B-spline grid
+    resolution, curvature regularization). The legacy 'iou' method instead fits two flat
+    parallel planes directly to the binary volume by maximizing intersection-over-union. The
+    two fitted surfaces are connected with side walls to form a closed, watertight box mesh.
 
     \b
     URI Format:
@@ -83,17 +119,17 @@ def seg2slab(
 
     \b
     Examples:
-        # Fit slab from a segmentation
+        # Fit a coupled (curved, parallel) slab from a segmentation
         copick convert seg2slab -c config.json \\
-            -i "segmentation:output/0@7.84" \\
-            --label 2 \\
-            -o "valid-sample:seg2slab/0"
+            -i "sample:postproc/largest@20.0" \\
+            --label 1 --method coupled --grid-resolution 5 5 --regularization 5 \\
+            -o "sample:seg2slab/0"
 
-        # Process specific runs with custom resolution
+        # Process specific runs with the legacy IoU flat-plane fit
         copick convert seg2slab -c config.json \\
             -r 14114 -r 14132 \\
             -i "predictions:model/run-001@10.0" \\
-            --label 1 --fit-resolution 100 100 \\
+            --label 1 --method iou --fit-resolution 100 100 \\
             -o "sample:seg2slab/fitted"
     """
     from copick_torch.fitting.slab_from_segmentation import slab_from_segmentation_lazy_batch
@@ -119,7 +155,7 @@ def seg2slab(
     input_params = parse_copick_uri(input_uri, "segmentation")
     output_params = parse_copick_uri(output_uri, "mesh")
 
-    logger.info(f"Fitting parallel planes to segmentation '{input_params['name']}'")
+    logger.info(f"Fitting slab ({method}) to segmentation '{input_params['name']}'")
     logger.info(f"Source: {input_params['user_id']}/{input_params['session_id']}")
     logger.info(
         f"Target mesh: {output_params['object_name']} ({output_params['user_id']}/{output_params['session_id']})",
@@ -133,6 +169,10 @@ def seg2slab(
         run_names=run_names_list,
         workers=workers,
         label=label,
+        method=method,
+        grid_resolution=tuple(grid_resolution),
+        regularization=regularization,
+        surface_stride=surface_stride,
         fit_resolution=tuple(fit_resolution),
         num_iterations=num_iterations,
         learning_rate=learning_rate,

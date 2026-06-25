@@ -1,4 +1,16 @@
-"""Fit parallel planes to a segmentation volume and create a closed slab mesh."""
+"""Fit a slab mesh to a segmentation volume.
+
+Two families of fitting are supported:
+
+* the ``"spline"`` / ``"coupled"`` / ``"parallel"`` methods extract top- and bottom-surface
+  point-clouds from the (largest connected component of the) segmentation and reuse the tested
+  fitters from :mod:`copick_torch.fitting.slab_from_picks`, giving the same options as
+  ``picks2slab`` (B-spline grid resolution, curvature regularization);
+* the legacy ``"iou"`` method fits two flat parallel planes directly to the binary volume by
+  maximizing a differentiable intersection-over-union.
+
+All methods produce a closed, watertight box mesh.
+"""
 
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, Tuple
 
@@ -10,6 +22,15 @@ from copick_utils.converters.converter_common import store_mesh_with_stats
 from copick_utils.converters.lazy_converter import create_lazy_batch_converter
 from copick_utils.converters.slab_common import triangulate_box
 from skimage import measure
+
+from copick_torch.fitting.slab_from_picks import (
+    evaluate_coupled_on_grid,
+    evaluate_plane_on_grid as evaluate_plane_on_grid_picks,
+    evaluate_spline_on_grid,
+    fit_coupled_spline_slab,
+    fit_parallel_planes_from_picks,
+    fit_spline_surface,
+)
 
 if TYPE_CHECKING:
     from copick.models import CopickMesh, CopickRun, CopickSegmentation
@@ -34,6 +55,46 @@ def get_largest_component(volume: np.ndarray) -> np.ndarray:
     out = np.zeros_like(volume)
     out[labeled == largest.label] = 1
     return out
+
+
+def _extract_surface_points(
+    binary: np.ndarray,
+    voxel_size: float,
+    stride: int = 1,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Extract top- and bottom-surface point clouds from a binary slab volume.
+
+    For every ``(y, x)`` column that contains foreground, the topmost (max-z) and bottommost
+    (min-z) foreground voxels define one point on the top and bottom surface respectively. The
+    slab normal is assumed to be roughly the z-axis (axis 0), matching the picks-based fitters
+    which model each surface as a height field ``z = f(x, y)``.
+
+    Args:
+        binary: Binary 3D volume (z, y, x).
+        voxel_size: Voxel spacing in angstroms (to convert voxel indices to physical coordinates).
+        stride: Column subsampling stride (>=1) to bound the point count on large volumes.
+
+    Returns:
+        Tuple ``(top_points, bottom_points)``, each an Nx3 array of ``[x, y, z]`` physical
+        (angstrom) coordinates following the convention used by the picks fitters.
+    """
+    fg = binary > 0
+    nz = fg.shape[0]
+
+    # First / last foreground voxel along z per column (argmax over a reversed view = last True).
+    bot_z = fg.argmax(axis=0)  # first foreground (0 for empty columns, masked out below)
+    top_z = nz - 1 - fg[::-1].argmax(axis=0)  # last foreground
+    any_fg = fg.any(axis=0)
+
+    if stride > 1:
+        keep = np.zeros_like(any_fg)
+        keep[::stride, ::stride] = True
+        any_fg = any_fg & keep
+
+    ys, xs = np.nonzero(any_fg)
+    top_points = np.stack([xs * voxel_size, ys * voxel_size, top_z[ys, xs] * voxel_size], axis=1).astype(float)
+    bot_points = np.stack([xs * voxel_size, ys * voxel_size, bot_z[ys, xs] * voxel_size], axis=1).astype(float)
+    return top_points, bot_points
 
 
 def _xy_to_z(xy: torch.Tensor, plane_normal: torch.Tensor, plane_offset: torch.Tensor) -> torch.Tensor:
@@ -156,12 +217,19 @@ def slab_from_segmentation(
     session_id: str,
     user_id: str,
     label: int = 1,
+    method: str = "coupled",
+    grid_resolution: Tuple[int, int] = (5, 5),
     fit_resolution: Tuple[int, int] = (50, 50),
-    num_iterations: int = 20,
+    num_iterations: int = 500,
     learning_rate: float = 0.1,
+    regularization: float = 0.0,
+    surface_stride: int = 1,
     **kwargs,
 ) -> Optional[Tuple["CopickMesh", Dict[str, int]]]:
-    """Create a closed slab mesh by fitting parallel planes to a segmentation.
+    """Create a closed slab mesh by fitting a surface to a segmentation.
+
+    Extracts a single label, keeps its largest connected component, then fits a slab using one
+    of several methods and connects the two surfaces into a closed, watertight box mesh.
 
     Args:
         segmentation: CopickSegmentation object.
@@ -170,9 +238,19 @@ def slab_from_segmentation(
         session_id: Session ID for the output mesh.
         user_id: User ID for the output mesh.
         label: Label index to extract from the segmentation.
+        method: Fitting method. ``"spline"`` fits two independent B-spline surfaces to the
+            extracted top/bottom surface points; ``"coupled"`` fits one shared curved surface
+            with two offsets (curved but exactly parallel slab); ``"parallel"`` fits two flat
+            parallel planes to the surface points; ``"iou"`` fits two flat parallel planes
+            directly to the binary volume by maximizing intersection-over-union (legacy).
+        grid_resolution: B-spline knot grid resolution (rows, cols) for ``spline``/``coupled``.
         fit_resolution: Output mesh grid resolution (rows, cols).
         num_iterations: Number of optimizer iterations.
         learning_rate: Learning rate for Adam optimizer.
+        regularization: Bending-energy (curvature) penalty weight for ``spline``/``coupled``;
+            higher = flatter. Ignored for ``parallel``/``iou``.
+        surface_stride: Column subsampling stride for surface-point extraction (>=1); bounds the
+            point count on large volumes. Ignored for ``iou``.
 
     Returns:
         Tuple of (CopickMesh, stats dict) or None if creation failed.
@@ -196,20 +274,70 @@ def slab_from_segmentation(
         logger.info("Extracting largest connected component...")
         binary = get_largest_component(binary)
 
-        # Fit parallel planes
-        logger.info("Fitting parallel planes to segmentation...")
-        plane_normal, top_offset, bot_offset = fit_parallel_planes(binary, num_iterations, learning_rate)
-
         # Compute physical dimensions
         voxel_size = segmentation.voxel_size
         max_dim = [d * voxel_size for d in vol.shape[::-1]]  # x, y, z
 
-        # Evaluate planes on grid
-        top_points = evaluate_plane_on_grid(plane_normal, top_offset, fit_resolution, max_dim)
-        bot_points = evaluate_plane_on_grid(plane_normal, bot_offset, fit_resolution, max_dim)
+        method = (method or "coupled").lower()
+
+        if method == "iou":
+            # Legacy: fit flat parallel planes directly to the volume via IoU.
+            logger.info("Fitting parallel planes to segmentation (IoU)...")
+            plane_normal, top_offset, bot_offset = fit_parallel_planes(binary, num_iterations, learning_rate)
+            surface1 = evaluate_plane_on_grid(plane_normal, top_offset, fit_resolution, max_dim)
+            surface2 = evaluate_plane_on_grid(plane_normal, bot_offset, fit_resolution, max_dim)
+        else:
+            # Extract top/bottom surface point-clouds and reuse the picks-based fitters.
+            top_points, bot_points = _extract_surface_points(binary, voxel_size, stride=surface_stride)
+            if len(top_points) < 3 or len(bot_points) < 3:
+                logger.warning(
+                    f"Need at least 3 surface points per layer, got {len(top_points)} and {len(bot_points)}",
+                )
+                return None
+
+            if method == "parallel":
+                logger.info(f"Fitting parallel planes to {len(top_points)} + {len(bot_points)} surface points...")
+                plane_normal, off1, off2 = fit_parallel_planes_from_picks(
+                    top_points,
+                    bot_points,
+                    max_dim,
+                    num_iterations,
+                    learning_rate,
+                )
+                surface1 = evaluate_plane_on_grid_picks(plane_normal, off1, fit_resolution, max_dim)
+                surface2 = evaluate_plane_on_grid_picks(plane_normal, off2, fit_resolution, max_dim)
+            elif method == "coupled":
+                logger.info(
+                    f"Fitting coupled (shared, parallel) slab to {len(top_points)} + {len(bot_points)} "
+                    f"surface points (regularization={regularization})...",
+                )
+                grid, o1, o2 = fit_coupled_spline_slab(
+                    top_points,
+                    bot_points,
+                    max_dim,
+                    grid_resolution,
+                    num_iterations,
+                    learning_rate,
+                    regularization,
+                )
+                surface1 = evaluate_coupled_on_grid(grid, o1, fit_resolution, max_dim)
+                surface2 = evaluate_coupled_on_grid(grid, o2, fit_resolution, max_dim)
+            elif method == "spline":
+                logger.info(f"Fitting independent splines to top/bottom surfaces (regularization={regularization})...")
+                grid1 = fit_spline_surface(
+                    top_points, max_dim, grid_resolution, num_iterations, learning_rate, regularization,
+                )
+                grid2 = fit_spline_surface(
+                    bot_points, max_dim, grid_resolution, num_iterations, learning_rate, regularization,
+                )
+                surface1 = evaluate_spline_on_grid(grid1, fit_resolution, max_dim)
+                surface2 = evaluate_spline_on_grid(grid2, fit_resolution, max_dim)
+            else:
+                logger.error(f"Unknown method '{method}' (expected spline|coupled|parallel|iou)")
+                return None
 
         # Create closed slab mesh
-        mesh = triangulate_box(bot_points, top_points, fit_resolution)
+        mesh = triangulate_box(surface1, surface2, fit_resolution)
 
         return store_mesh_with_stats(run, mesh, object_name, session_id, user_id, "slab")
 
@@ -220,5 +348,5 @@ def slab_from_segmentation(
 
 slab_from_segmentation_lazy_batch = create_lazy_batch_converter(
     converter_func=slab_from_segmentation,
-    task_description="Fitting parallel planes to segmentations and creating slab meshes",
+    task_description="Fitting a slab to segmentations and creating slab meshes",
 )
