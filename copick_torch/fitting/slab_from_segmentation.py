@@ -25,11 +25,13 @@ from skimage import measure
 
 from copick_torch.fitting.slab_from_picks import (
     evaluate_coupled_on_grid,
-    evaluate_plane_on_grid as evaluate_plane_on_grid_picks,
     evaluate_spline_on_grid,
     fit_coupled_spline_slab,
     fit_parallel_planes_from_picks,
     fit_spline_surface,
+)
+from copick_torch.fitting.slab_from_picks import (
+    evaluate_plane_on_grid as evaluate_plane_on_grid_picks,
 )
 
 if TYPE_CHECKING:
@@ -325,10 +327,20 @@ def slab_from_segmentation(
             elif method == "spline":
                 logger.info(f"Fitting independent splines to top/bottom surfaces (regularization={regularization})...")
                 grid1 = fit_spline_surface(
-                    top_points, max_dim, grid_resolution, num_iterations, learning_rate, regularization,
+                    top_points,
+                    max_dim,
+                    grid_resolution,
+                    num_iterations,
+                    learning_rate,
+                    regularization,
                 )
                 grid2 = fit_spline_surface(
-                    bot_points, max_dim, grid_resolution, num_iterations, learning_rate, regularization,
+                    bot_points,
+                    max_dim,
+                    grid_resolution,
+                    num_iterations,
+                    learning_rate,
+                    regularization,
                 )
                 surface1 = evaluate_spline_on_grid(grid1, fit_resolution, max_dim)
                 surface2 = evaluate_spline_on_grid(grid2, fit_resolution, max_dim)
