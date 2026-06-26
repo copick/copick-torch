@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.1.0](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.1...copick-torch-v1.1.0) (2026-06-26)
+
+
+### ✨ Features
+
+* 3D bandpass filtering and lazy loading ([#80](https://github.com/copick/copick-torch/issues/80)) ([118a388](https://github.com/copick/copick-torch/commit/118a38878fbb91496349658348e1b38d88b7f523))
+* Improve boundary box fitting tools. ([#110](https://github.com/copick/copick-torch/issues/110)) ([39635ac](https://github.com/copick/copick-torch/commit/39635ac77583c2c5ea4fefce612b676efe43a124))
+* nnUNet integration for CoPick cryo-ET datasets ([#100](https://github.com/copick/copick-torch/issues/100)) ([53e7dcc](https://github.com/copick/copick-torch/commit/53e7dcc574d663448e688957e417e7242da23b2b))
+* Slab-fitting tools. ([#97](https://github.com/copick/copick-torch/issues/97)) ([79a3acb](https://github.com/copick/copick-torch/commit/79a3acb2af1675645f11816d9531ca613199f3c4))
+* Update dependencies. ([#90](https://github.com/copick/copick-torch/issues/90)) ([6d163ff](https://github.com/copick/copick-torch/commit/6d163ff210948b24b62300ce65759ec114eef07d))
+
+
+### 🐞 Bug Fixes
+
+* bump actions/checkout from 6 to 7 ([#109](https://github.com/copick/copick-torch/issues/109)) ([6e9497a](https://github.com/copick/copick-torch/commit/6e9497a639d03d86fcd3494c31e3c82f949745dc))
+* bump chanzuckerberg/github-actions from 6.11.1 to 6.13.0 ([#87](https://github.com/copick/copick-torch/issues/87)) ([d871e69](https://github.com/copick/copick-torch/commit/d871e6995a2d8b0090b8dbc18fc77cdaec492753))
+* bump chanzuckerberg/github-actions from 6.13.0 to 6.20.0 ([#96](https://github.com/copick/copick-torch/issues/96)) ([ae5cbee](https://github.com/copick/copick-torch/commit/ae5cbeeee4652abb074e3f5d0595655c55481a34))
+* bump chanzuckerberg/github-actions from 6.20.0 to 6.22.1 ([#108](https://github.com/copick/copick-torch/issues/108)) ([dbd1bff](https://github.com/copick/copick-torch/commit/dbd1bffb0a9c09ad3ca2ef358d27e370b50ab902))
+* bump codecov/codecov-action from 5 to 6 ([#94](https://github.com/copick/copick-torch/issues/94)) ([5887e46](https://github.com/copick/copick-torch/commit/5887e462c5b7e2245d2fa893b3a9c101b94301d9))
+* bump codecov/codecov-action from 6 to 7 ([#106](https://github.com/copick/copick-torch/issues/106)) ([729a474](https://github.com/copick/copick-torch/commit/729a474142b72c87c40652c18424014d427e3267))
+* bump copick from 1.23.4 to 1.24.1 ([#105](https://github.com/copick/copick-torch/issues/105)) ([e61713f](https://github.com/copick/copick-torch/commit/e61713f395df0e2457e131749b25b87909e188cb))
+* bump googleapis/release-please-action from 4 to 5 ([#98](https://github.com/copick/copick-torch/issues/98)) ([55de2d1](https://github.com/copick/copick-torch/commit/55de2d1d894a5daddcd09eac43dfa070b8445772))
+* bump matplotlib from 3.10.8 to 3.10.9 ([#104](https://github.com/copick/copick-torch/issues/104)) ([2225d76](https://github.com/copick/copick-torch/commit/2225d76810500b050688490161d8b0d9c7d01dea))
+* bump pyarrow from 23.0.1 to 24.0.0 ([#101](https://github.com/copick/copick-torch/issues/101)) ([a8df077](https://github.com/copick/copick-torch/commit/a8df07749764b11324afd4ab347f676239e0de06))
+* bump ruff from 0.15.10 to 0.15.12 ([#102](https://github.com/copick/copick-torch/issues/102)) ([5b94d0a](https://github.com/copick/copick-torch/commit/5b94d0a490a519b27d133f3295a394f3e89ef13e))
+* bump tox from 4.53.0 to 4.53.1 ([#103](https://github.com/copick/copick-torch/issues/103)) ([d86a535](https://github.com/copick/copick-torch/commit/d86a5351855e67baa10f4875f863aa51e6d7c045))
+* Fix odd volume scaling. ([#107](https://github.com/copick/copick-torch/issues/107)) ([a518926](https://github.com/copick/copick-torch/commit/a518926fdc6ff75252b118226e0d01f3a85c4360))
+* improve CLI speed and update tests ([#88](https://github.com/copick/copick-torch/issues/88)) ([b105985](https://github.com/copick/copick-torch/commit/b105985cba26048afc40bb2bf2d22dd6ab088438))
+
 ## [1.0.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.0...copick-torch-v1.0.1) (2025-12-03)
 
 
