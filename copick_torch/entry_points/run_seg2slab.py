@@ -112,25 +112,33 @@ def seg2slab(
     parallel planes directly to the binary volume by maximizing intersection-over-union. The
     two fitted surfaces are connected with side walls to form a closed, watertight box mesh.
 
-    \b
     URI Format:
+
+        \b
         Segmentations: name:user_id/session_id@voxel_spacing
         Meshes: object_name:user_id/session_id
 
-    \b
     Examples:
+
+        \b
         # Fit a coupled (curved, parallel) slab from a segmentation
         copick convert seg2slab -c config.json \\
             -i "sample:postproc/largest@20.0" \\
             --label 1 --method coupled --grid-resolution 5 5 --regularization 5 \\
             -o "sample:seg2slab/0"
 
+        \b
         # Process specific runs with the legacy IoU flat-plane fit
         copick convert seg2slab -c config.json \\
             -r 14114 -r 14132 \\
             -i "predictions:model/run-001@10.0" \\
             --label 1 --method iou --fit-resolution 100 100 \\
             -o "sample:seg2slab/fitted"
+
+    See Also:
+
+        \b
+        copick convert picks2slab: fit the same slab surfaces to picked points instead of a segmentation
     """
     from copick_torch.fitting.slab_from_segmentation import slab_from_segmentation_lazy_batch
 

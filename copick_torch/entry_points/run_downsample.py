@@ -1,51 +1,90 @@
+"""CLI command for downsampling tomograms with GPU Fourier rescaling."""
+
 import click
+from click_option_group import optgroup
+from copick.cli.util import add_config_option, add_debug_option
+from copick.util.log import get_logger
 
 
-def downsample_commands(func):
-    """Decorator to add common options to a Click command."""
-    options = [
-        click.option("--config", type=str, required=True, help="Path to Copick Config for Processing Data"),
-        click.option("--tomo-alg", type=str, required=True, help="Tomogram Algorithm to use"),
-        click.option("--voxel-size", type=float, required=False, default=10, help="Voxel Size to Query the Data"),
-        click.option(
-            "--target-resolution",
-            type=float,
-            required=False,
-            default=10,
-            help="Target Resolution to Downsample to",
-        ),
-        click.option(
-            "--delete-source",
-            type=bool,
-            required=False,
-            default=False,
-            help="Delete the source tomograms after downsampling",
-        ),
-    ]
-    for option in reversed(options):  # Add options in reverse order to preserve correct order
-        func = option(func)
-    return func
-
-
-@click.command(context_settings={"show_default": True})
-@downsample_commands
-@click.pass_context
+@click.command(
+    "downsample",
+    context_settings={"show_default": True},
+    short_help="Downsample tomograms via Fourier rescaling.",
+    no_args_is_help=True,
+)
+@add_config_option
+@optgroup.group("\nInput Options", help="Options related to the input tomograms.")
+@optgroup.option(
+    "--tomo-alg",
+    "-ta",
+    type=str,
+    required=True,
+    help="Tomogram algorithm/type to query and downsample (e.g. 'wbp').",
+)
+@optgroup.option(
+    "--voxel-size",
+    "-vs",
+    type=float,
+    default=10.0,
+    help="Source voxel spacing to query, in angstroms.",
+)
+@optgroup.group("\nTool Options", help="Options related to this tool.")
+@optgroup.option(
+    "--target-resolution",
+    "-tr",
+    type=float,
+    default=10.0,
+    help="Target voxel spacing to downsample to, in angstroms.",
+)
+@optgroup.option(
+    "--delete-source/--keep-source",
+    is_flag=True,
+    default=False,
+    help="Delete the source tomograms after downsampling.",
+)
+@add_debug_option
 def downsample(
-    ctx: click.Context,
     config: str,
     tomo_alg: str,
     voxel_size: float,
     target_resolution: float,
     delete_source: bool,
+    debug: bool,
 ):
     """
-    Downsample tomograms with Fourier Re-Scaling.
+    Downsample tomograms on the GPU with Fourier rescaling.
+
+    For every run in the project, queries the tomogram of the given algorithm at the
+    source voxel spacing, Fourier-rescales it to the target voxel spacing on the GPU,
+    and writes the downsampled tomogram back into the project. Runs are processed in
+    parallel on a GPU pool.
+
+    URI Format:
+
+        \b
+        Tomograms: tomo_type@voxel_spacing
+
+    Examples:
+
+        \b
+        # Downsample wbp tomograms from 10 A to 20 A
+        copick process downsample -c config.json --tomo-alg wbp \\
+            --voxel-size 10.0 --target-resolution 20.0
+
+        \b
+        # Downsample, then delete the source tomograms
+        copick process downsample -c config.json --tomo-alg wbp \\
+            --voxel-size 10.0 --target-resolution 20.0 --delete-source
+
+    See Also:
+
+        \b
+        copick process bandpass: band-pass filter tomograms without resampling
     """
+    run(config, tomo_alg, voxel_size, target_resolution, delete_source, debug=debug)
 
-    run(config, tomo_alg, voxel_size, target_resolution, delete_source)
 
-
-def run(config, tomo_alg, voxel_size, target_resolution, delete_source):
+def run(config, tomo_alg, voxel_size, target_resolution, delete_source, debug=False):
     """
     Runs the downsampling.
     """
@@ -54,6 +93,8 @@ def run(config, tomo_alg, voxel_size, target_resolution, delete_source):
 
     from copick_torch import parallelization
     from copick_torch.filters import downsample
+
+    logger = get_logger(__name__, debug=debug)
 
     root = copick.from_file(config)
     run_ids = [run.name for run in root.runs]
@@ -78,7 +119,7 @@ def run(config, tomo_alg, voxel_size, target_resolution, delete_source):
         pool.shutdown()
 
     save_parameters(config, tomo_alg, voxel_size, target_resolution)
-    print("✅ Completed the Downsampling!")
+    logger.info("✅ Completed the Downsampling!")
 
 
 def save_parameters(config, tomo_alg, voxel_size, target_resolution):

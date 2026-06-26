@@ -224,7 +224,12 @@ def convert(cfg: dict):
         print(f"  Skipped runs   : {skipped}")
 
 
-@click.command("nnunet", no_args_is_help=True, context_settings={"show_default": True})
+@click.command(
+    "nnunet",
+    no_args_is_help=True,
+    context_settings={"show_default": True},
+    short_help="Convert a copick project to nnUNet raw dataset format.",
+)
 @click.option("-c", "--config", required=True, type=click.Path(exists=True), help="Path to copick config.json")
 @click.option("-uri", "--tomo-uri", type=str, default="wbp@10.0", help="Tomogram URI to use for training")
 @click.option(
@@ -276,7 +281,43 @@ def convert(cfg: dict):
     help="Number of parallel worker threads for converting tomograms.",
 )
 def cli(config, tomo_uri, seg_info, train_run_ids, test_run_ids, dataset_id, dataset_name, output, num_workers):
-    """Convert a CoPick project to nnUNet raw dataset format (imagesTr / labelsTr / imagesTs)."""
+    """Convert a copick project to nnUNet raw dataset format.
+
+    Reads tomograms and segmentation masks from a copick project and writes them
+    as .nii.gz files in the nnUNet raw dataset layout (a `Dataset{id}_{name}`
+    folder containing `imagesTr`, `labelsTr`, and optionally `imagesTs`). A
+    `dataset.json` describing the channel and label map is generated from the
+    targets config stored in the copick overlay.
+
+    Training runs default to every run not listed in the test set. The tomogram
+    voxel spacing is read from the tomogram URI and converted from Angstroms to
+    nanometres so that nnUNet's patch-size planner sees reasonable numbers.
+
+    Examples:
+
+        \b
+        # Convert all runs in a project to an nnUNet dataset
+        copick convert nnunet -c config.json --dataset-name Membrane \\
+            --output /data/nnunet_raw
+
+        \b
+        # Convert with an explicit tomogram URI, segmentation info, and dataset id
+        copick convert nnunet -c config.json --tomo-uri wbp@10.0 \\
+            --seg-info targets,nnunet,1 --dataset-id 5 --dataset-name Membrane \\
+            --output /data/nnunet_raw
+
+        \b
+        # Convert with an explicit train/test split and more worker threads
+        copick convert nnunet -c config.json --dataset-name Membrane \\
+            --train-run-ids run1,run2,run3 --test-run-ids run4,run5 \\
+            --output /data/nnunet_raw -j 8
+
+    See Also:
+
+        \b
+        copick training nnunet: train an nnUNet model on the converted dataset
+        copick inference nnunet: run inference with a trained nnUNet model
+    """
     cfg = {
         "copick_config": config,
         "tomo_uri": tomo_uri,
