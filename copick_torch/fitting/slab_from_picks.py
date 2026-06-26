@@ -16,12 +16,42 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _bending_energy(grid) -> torch.Tensor:
+    """Curvature (bending-energy) penalty for a CubicBSplineGrid2d.
+
+    Computes the mean squared second difference of the spline control points along
+    each grid axis and sums the two contributions. This directly penalizes
+    curvature of the fitted surface; a larger weight on this term yields a flatter
+    surface. Averaging (rather than summing) over control points keeps the penalty
+    roughly invariant to ``grid_resolution`` so a given regularization weight
+    behaves similarly across knot counts. Axes with fewer than 3 knots (no second
+    difference) contribute zero.
+
+    Args:
+        grid: A ``CubicBSplineGrid2d`` whose control points live in ``grid._data``
+            with shape ``(n_channels, rows, cols)``.
+
+    Returns:
+        Scalar tensor (on the grid's device) with the bending energy.
+    """
+    data = grid._data[0]  # (rows, cols) control-point heights
+    penalty = data.sum() * 0.0  # zero scalar matching device/dtype
+    if data.shape[0] >= 3:
+        d2_rows = data[2:, :] - 2 * data[1:-1, :] + data[:-2, :]
+        penalty = penalty + (d2_rows**2).mean()
+    if data.shape[1] >= 3:
+        d2_cols = data[:, 2:] - 2 * data[:, 1:-1] + data[:, :-2]
+        penalty = penalty + (d2_cols**2).mean()
+    return penalty
+
+
 def fit_spline_surface(
     points: np.ndarray,
     max_dim: Sequence[float],
     grid_resolution: Tuple[int, int] = (5, 5),
     num_iterations: int = 500,
     learning_rate: float = 0.1,
+    regularization: float = 0.0,
 ):
     """Fit a cubic B-spline surface to a set of 3D points.
 
@@ -31,6 +61,9 @@ def fit_spline_surface(
         grid_resolution: Resolution of the B-spline grid (rows, cols).
         num_iterations: Number of Adam optimizer iterations.
         learning_rate: Learning rate for the optimizer.
+        regularization: Weight of the bending-energy (curvature) penalty. ``0.0``
+            (default) reproduces the unregularized fit; higher values flatten the
+            surface.
 
     Returns:
         Fitted CubicBSplineGrid2d object.
@@ -55,10 +88,11 @@ def fit_spline_surface(
     for _ in t:
         pred = grid(x_t).squeeze()
         optimizer.zero_grad()
-        loss = torch.sum((pred - y_t) ** 2) ** 0.5
+        data_loss = torch.sum((pred - y_t) ** 2) ** 0.5
+        loss = data_loss + regularization * _bending_energy(grid) if regularization else data_loss
         loss.backward()
         optimizer.step()
-        t.set_description(f"RMS: {loss.item():.6f}")
+        t.set_description(f"RMS: {data_loss.item():.6f}")
         t.refresh()
 
     return grid.cpu()
@@ -90,6 +124,117 @@ def evaluate_spline_on_grid(
     points[:, 0] = xy[:, 0].numpy() * max_dim[0]
     points[:, 1] = xy[:, 1].numpy() * max_dim[1]
     points[:, 2] = grid(xy).squeeze().detach().numpy() * max_dim[2]
+
+    return points
+
+
+def fit_coupled_spline_slab(
+    points1: np.ndarray,
+    points2: np.ndarray,
+    max_dim: Sequence[float],
+    grid_resolution: Tuple[int, int] = (5, 5),
+    num_iterations: int = 500,
+    learning_rate: float = 0.1,
+    regularization: float = 0.0,
+):
+    """Fit a curved-but-parallel slab to two point sets with a shared surface.
+
+    A single cubic B-spline surface ``S(x, y)`` captures the common curvature of
+    both layers, and two learned scalar z-offsets place the layers above/below it:
+    ``top = S + off1``, ``bottom = S + off2``. The two surfaces therefore share one
+    curvature and remain exactly parallel (constant vertical gap = ``off1 - off2``),
+    in contrast to ``fit_spline_surface`` which fits each layer independently.
+
+    Args:
+        points1: Nx3 array of first surface points (e.g. top-layer).
+        points2: Mx3 array of second surface points (e.g. bottom-layer).
+        max_dim: Physical dimensions [x, y, z] for normalization.
+        grid_resolution: Shared B-spline grid resolution (rows, cols).
+        num_iterations: Number of Adam optimizer iterations.
+        learning_rate: Learning rate for the optimizer.
+        regularization: Weight of the bending-energy (curvature) penalty on the
+            shared surface. Higher values flatten the slab.
+
+    Returns:
+        Tuple of (shared grid on CPU, off1, off2) where the offsets are CPU tensors
+        in normalized z units.
+    """
+    from torch_cubic_spline_grids import CubicBSplineGrid2d
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Normalize xy to [0, 1] and z separately
+    xy1 = points1[:, 0:2].copy()
+    xy1[:, 0] /= max_dim[0]
+    xy1[:, 1] /= max_dim[1]
+    z1 = points1[:, 2] / max_dim[2]
+
+    xy2 = points2[:, 0:2].copy()
+    xy2[:, 0] /= max_dim[0]
+    xy2[:, 1] /= max_dim[1]
+    z2 = points2[:, 2] / max_dim[2]
+
+    grid = CubicBSplineGrid2d(resolution=tuple(grid_resolution), n_channels=1).to(device)
+    # Initialize the offsets at each layer's mean height; the shared grid (init 0)
+    # then represents the common deviation from those means.
+    off1 = torch.nn.Parameter(torch.tensor([float(z1.mean())], device=device))
+    off2 = torch.nn.Parameter(torch.tensor([float(z2.mean())], device=device))
+
+    optimizer = torch.optim.Adam([*grid.parameters(), off1, off2], lr=learning_rate)
+
+    xy1_t = torch.tensor(xy1, dtype=torch.float32, device=device)
+    z1_t = torch.tensor(z1, dtype=torch.float32, device=device)
+    xy2_t = torch.tensor(xy2, dtype=torch.float32, device=device)
+    z2_t = torch.tensor(z2, dtype=torch.float32, device=device)
+
+    t = tqdm.trange(num_iterations, desc="RMS: ", leave=True)
+    for _ in t:
+        optimizer.zero_grad()
+        pred1 = grid(xy1_t).squeeze() + off1
+        pred2 = grid(xy2_t).squeeze() + off2
+        data_loss = torch.sum((pred1 - z1_t) ** 2) ** 0.5 + torch.sum((pred2 - z2_t) ** 2) ** 0.5
+        loss = data_loss + regularization * _bending_energy(grid) if regularization else data_loss
+        loss.backward()
+        optimizer.step()
+        t.set_description(f"RMS: {data_loss.item():.6f}")
+        t.refresh()
+
+    return grid.cpu(), off1.detach().cpu(), off2.detach().cpu()
+
+
+def evaluate_coupled_on_grid(
+    grid,
+    offset,
+    fit_resolution: Tuple[int, int],
+    max_dim: Sequence[float],
+) -> np.ndarray:
+    """Evaluate a shared spline surface plus a z-offset on a regular grid.
+
+    Mirrors ``evaluate_spline_on_grid`` but adds ``offset`` (in normalized z units)
+    to the surface before denormalizing, so both layers of a coupled slab share the
+    same xy sampling and curvature.
+
+    Args:
+        grid: Fitted shared CubicBSplineGrid2d object.
+        offset: Scalar z-offset (normalized) for this layer.
+        fit_resolution: (rows, cols) grid resolution for evaluation.
+        max_dim: Physical dimensions [x, y, z] for denormalization.
+
+    Returns:
+        Nx3 array of points in physical coordinates.
+    """
+    x_test, y_test = torch.meshgrid(
+        torch.linspace(0, 1, fit_resolution[0]),
+        torch.linspace(0, 1, fit_resolution[1]),
+        indexing="xy",
+    )
+    xy = torch.stack([x_test, y_test], dim=2).view(-1, 2)
+    off = float(offset)
+
+    points = np.empty((xy.shape[0], 3))
+    points[:, 0] = xy[:, 0].numpy() * max_dim[0]
+    points[:, 1] = xy[:, 1].numpy() * max_dim[1]
+    points[:, 2] = (grid(xy).squeeze().detach().numpy() + off) * max_dim[2]
 
     return points
 
@@ -221,6 +366,7 @@ def slab_from_picks(
     fit_resolution: Tuple[int, int] = (50, 50),
     num_iterations: int = 500,
     learning_rate: float = 0.1,
+    regularization: float = 0.0,
     **kwargs,
 ) -> Optional[Tuple["CopickMesh", Dict[str, int]]]:
     """Create a closed slab mesh from two pick sets by fitting surfaces.
@@ -234,12 +380,18 @@ def slab_from_picks(
         user_id: User ID for the output mesh.
         tomo_type: Type of tomogram (for determining volume dimensions).
         voxel_spacing: Voxel spacing of the tomogram.
-        method: Fitting method - "spline" for independent B-spline surfaces,
-            "parallel" for two parallel planes (shared normal, two offsets).
-        grid_resolution: B-spline grid resolution (rows, cols). Only used with method="spline".
+        method: Fitting method - "spline" for two independent B-spline surfaces,
+            "coupled" for one shared curved surface with two offsets (curved but
+            exactly parallel slab), "parallel" for two flat parallel planes (shared
+            normal, two offsets).
+        grid_resolution: B-spline grid resolution (rows, cols). Used with the
+            "spline" and "coupled" methods (the knot grid).
         fit_resolution: Output mesh grid resolution (rows, cols).
         num_iterations: Number of optimizer iterations per surface.
         learning_rate: Learning rate for Adam optimizer.
+        regularization: Bending-energy (curvature) penalty weight for the "spline"
+            and "coupled" methods; higher = flatter. ``0.0`` (default) leaves the
+            spline fit unregularized. Ignored for "parallel".
 
     Returns:
         Tuple of (CopickMesh, stats dict) or None if creation failed.
@@ -271,12 +423,28 @@ def slab_from_picks(
             )
             surface1 = evaluate_plane_on_grid(plane_normal, offset1, fit_resolution, max_dim)
             surface2 = evaluate_plane_on_grid(plane_normal, offset2, fit_resolution, max_dim)
+        elif method == "coupled":
+            logger.info(
+                f"Fitting coupled (shared, parallel) slab to {len(points1)} + {len(points2)} points "
+                f"(regularization={regularization})...",
+            )
+            grid, off1, off2 = fit_coupled_spline_slab(
+                points1,
+                points2,
+                max_dim,
+                grid_resolution,
+                num_iterations,
+                learning_rate,
+                regularization,
+            )
+            surface1 = evaluate_coupled_on_grid(grid, off1, fit_resolution, max_dim)
+            surface2 = evaluate_coupled_on_grid(grid, off2, fit_resolution, max_dim)
         else:
-            logger.info(f"Fitting spline to {len(points1)} top-layer points...")
-            grid1 = fit_spline_surface(points1, max_dim, grid_resolution, num_iterations, learning_rate)
+            logger.info(f"Fitting spline to {len(points1)} top-layer points (regularization={regularization})...")
+            grid1 = fit_spline_surface(points1, max_dim, grid_resolution, num_iterations, learning_rate, regularization)
 
-            logger.info(f"Fitting spline to {len(points2)} bottom-layer points...")
-            grid2 = fit_spline_surface(points2, max_dim, grid_resolution, num_iterations, learning_rate)
+            logger.info(f"Fitting spline to {len(points2)} bottom-layer points (regularization={regularization})...")
+            grid2 = fit_spline_surface(points2, max_dim, grid_resolution, num_iterations, learning_rate, regularization)
 
             surface1 = evaluate_spline_on_grid(grid1, fit_resolution, max_dim)
             surface2 = evaluate_spline_on_grid(grid2, fit_resolution, max_dim)

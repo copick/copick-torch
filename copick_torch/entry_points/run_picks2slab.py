@@ -29,17 +29,25 @@ from copick_utils.util.config_models import create_dual_selector_config
 @add_tomogram_option(required=True)
 @optgroup.option(
     "--method",
-    type=click.Choice(["spline", "parallel"], case_sensitive=False),
+    type=click.Choice(["spline", "parallel", "coupled"], case_sensitive=False),
     default="spline",
-    help="Surface fitting method: 'spline' fits independent B-spline surfaces, "
-    "'parallel' fits two parallel planes (shared normal, two offsets).",
+    help="Surface fitting method: 'spline' fits two independent B-spline surfaces, "
+    "'coupled' fits one shared curved surface with two offsets (curved but exactly "
+    "parallel slab), 'parallel' fits two flat parallel planes (shared normal, two offsets).",
 )
 @optgroup.option(
     "--grid-resolution",
     nargs=2,
     type=int,
     default=(5, 5),
-    help="B-spline grid resolution (rows cols). Only used with --method spline.",
+    help="B-spline knot grid resolution (rows cols). Used with --method spline and coupled.",
+)
+@optgroup.option(
+    "--regularization",
+    type=float,
+    default=0.0,
+    help="Curvature (bending-energy) penalty weight for --method spline and coupled; "
+    "higher = flatter. Ignored for --method parallel.",
 )
 @optgroup.option(
     "--fit-resolution",
@@ -72,6 +80,7 @@ def picks2slab(
     tomogram_uri,
     method,
     grid_resolution,
+    regularization,
     fit_resolution,
     num_iterations,
     learning_rate,
@@ -83,13 +92,22 @@ def picks2slab(
     Fit surfaces to two pick sets and create a closed slab mesh.
 
     Takes two sets of picks (e.g. top-layer and bottom-layer boundary annotations)
-    and fits surfaces to each. Two methods are available:
+    and fits surfaces to each. Three methods are available:
 
     \b
-    - spline (default): Fits independent cubic B-spline surfaces to each pick set.
-      Produces smooth, flexible surfaces that follow the curvature of the picks.
+    - spline (default): Fits two independent cubic B-spline surfaces, one per pick
+      set. Produces smooth, flexible surfaces that follow the curvature of the picks.
+      The two surfaces are unconstrained relative to each other.
+    - coupled: Fits one shared curved B-spline surface plus two z-offsets, so both
+      layers share a single curvature and stay exactly parallel (constant gap).
+      A curved-but-parallel slab; the middle ground between spline and parallel.
     - parallel: Fits two parallel planes with a shared normal vector and different
       offsets. Produces flat, rigid surfaces guaranteed to be parallel.
+
+    \b
+    For the spline and coupled methods, --regularization adds a bending-energy
+    (curvature) penalty: higher values flatten the fitted surface(s), which is
+    useful to keep a deformed slab from over-curving.
 
     \b
     The fitted surfaces are connected with side walls to form a closed, watertight
@@ -107,6 +125,12 @@ def picks2slab(
         copick convert picks2slab -c config.json \\
             -i1 "top-layer:bob/1" -i2 "bottom-layer:bob/1" \\
             -t "wbp@7.84" \\
+            -o "sample:picks2slab/0"
+
+        # Fit a curved-but-parallel slab (shared surface), gently regularized
+        copick convert picks2slab -c config.json \\
+            -i1 "top-layer:bob/1" -i2 "bottom-layer:bob/1" \\
+            -t "wbp@7.84" --method coupled --regularization 5 \\
             -o "sample:picks2slab/0"
 
         # Fit slab with parallel planes
@@ -160,8 +184,8 @@ def picks2slab(
     )
     logger.info(f"Tomogram: {tomo_type}@{voxel_spacing}")
     logger.info(f"Method: {method}, Fit resolution: {fit_resolution}")
-    if method == "spline":
-        logger.info(f"Grid resolution: {grid_resolution}")
+    if method in ("spline", "coupled"):
+        logger.info(f"Grid resolution: {grid_resolution}, Regularization: {regularization}")
 
     # Run batch conversion
     results = slab_from_picks_lazy_batch(
@@ -176,6 +200,7 @@ def picks2slab(
         fit_resolution=tuple(fit_resolution),
         num_iterations=num_iterations,
         learning_rate=learning_rate,
+        regularization=regularization,
     )
 
     successful = sum(1 for result in results.values() if result and result.get("processed", 0) > 0)
