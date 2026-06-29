@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.1.0...copick-torch-v1.1.1) (2026-06-29)
+
+
+### 🐞 Bug Fixes
+
+* bump chanzuckerberg/github-actions from 6.22.1 to 6.26.3 ([#111](https://github.com/copick/copick-torch/issues/111)) ([6abea35](https://github.com/copick/copick-torch/commit/6abea354db59f54e5711db5bcb07b2e5bc592df6))
+* bump pandas from 3.0.2 to 3.0.4 ([#114](https://github.com/copick/copick-torch/issues/114)) ([f298824](https://github.com/copick/copick-torch/commit/f298824597f6bc449d049748e50254b87194bbf7))
+* bump torch-cubic-spline-grids from 0.5.0 to 0.5.2 ([#113](https://github.com/copick/copick-torch/issues/113)) ([66989a4](https://github.com/copick/copick-torch/commit/66989a4096f2c4bff5bb27627d23554a3e282614))
+* bump tox-uv from 1.35.1 to 1.35.2 ([#116](https://github.com/copick/copick-torch/issues/116)) ([cf8ac8a](https://github.com/copick/copick-torch/commit/cf8ac8af40b538593c6de4f8482fc403dc3bf303))
+* Normalize Docstrings. ([#118](https://github.com/copick/copick-torch/issues/118)) ([433b4e9](https://github.com/copick/copick-torch/commit/433b4e9e6a0bc7590cb17f1eaece6e73f68cdf02))
+
 ## [1.1.0](https://github.com/copick/copick-torch/compare/copick-torch-v1.0.1...copick-torch-v1.1.0) (2026-06-26)
 
 
