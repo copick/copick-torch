@@ -1,55 +1,9 @@
+"""CLI command for 3D band-pass filtering of tomograms on the GPU."""
+
 import click
-
-
-def low_pass_commands(func):
-    """Decorator to add common options to a Click command."""
-    options = [
-        click.option(
-            "--lp-freq",
-            type=float,
-            required=False,
-            default=0,
-            help="Low-pass cutoff frequency (in Angstroms)",
-        ),
-        click.option("--lp-decay", type=float, required=False, default=50, help="Low-pass decay width (in pixels)"),
-        click.option(
-            "--hp-freq",
-            type=float,
-            required=False,
-            default=0,
-            help="High-pass cutoff frequency (in Angstroms)",
-        ),
-        click.option("--hp-decay", type=float, required=False, default=50, help="High-pass decay width (in pixels)"),
-        click.option(
-            "--show-filter",
-            type=bool,
-            required=False,
-            default=True,
-            help="Save the filter as a PNG (filter3d.png)",
-        ),
-    ]
-    for option in reversed(options):  # Add options in reverse order to preserve correct order
-        func = option(func)
-    return func
-
-
-def copick_commands(func):
-    """Decorator to add common options to a Click command."""
-    options = [
-        click.option("--config", type=str, required=True, help="Path to Copick Config for Processing Data"),
-        click.option(
-            "--run-ids",
-            type=str,
-            required=False,
-            default=None,
-            help="Run ID to process (No Input would process the entire dataset.)",
-        ),
-        click.option("--tomo-alg", type=str, required=True, help="Tomogram Algorithm to use"),
-        click.option("--voxel-size", type=float, required=False, default=10, help="Voxel Size to Query the Data"),
-    ]
-    for option in reversed(options):  # Add options in reverse order to preserve correct order
-        func = option(func)
-    return func
+from click_option_group import optgroup
+from copick.cli.util import add_config_option, add_debug_option
+from copick.util.log import get_logger
 
 
 def input_check(lp_res, hp_res, apix):
@@ -87,25 +41,115 @@ def print_header(lp_freq, lp_decay, hp_freq, hp_decay):
     print("----------------------------------------")
 
 
-@click.command(context_settings={"show_default": True})
-@copick_commands
-@low_pass_commands
+@click.command(
+    "bandpass",
+    context_settings={"show_default": True},
+    short_help="Band-pass filter tomograms in 3D.",
+    no_args_is_help=True,
+)
+@add_config_option
+@optgroup.group("\nInput Options", help="Options related to the input tomograms.")
+@optgroup.option(
+    "--run-ids",
+    type=str,
+    required=False,
+    default=None,
+    help="Run ID to process (No Input would process the entire dataset.)",
+)
+@optgroup.option("--tomo-alg", type=str, required=True, help="Tomogram Algorithm to use")
+@optgroup.option("--voxel-size", type=float, required=False, default=10, help="Voxel Size to Query the Data")
+@optgroup.group("\nTool Options", help="Options related to this tool.")
+@optgroup.option(
+    "--lp-freq",
+    type=float,
+    required=False,
+    default=0,
+    help="Low-pass cutoff frequency (in Angstroms)",
+)
+@optgroup.option("--lp-decay", type=float, required=False, default=50, help="Low-pass decay width (in pixels)")
+@optgroup.option(
+    "--hp-freq",
+    type=float,
+    required=False,
+    default=0,
+    help="High-pass cutoff frequency (in Angstroms)",
+)
+@optgroup.option("--hp-decay", type=float, required=False, default=50, help="High-pass decay width (in pixels)")
+@optgroup.option(
+    "--show-filter",
+    type=bool,
+    required=False,
+    default=True,
+    help="Save the filter as a PNG (filter3d.png)",
+)
+@add_debug_option
 def bandpass(
     config: str,
     run_ids: str,
+    tomo_alg: str,
+    voxel_size: float,
     lp_freq: float,
     lp_decay: float,
     hp_freq: float,
     hp_decay: float,
-    tomo_alg: str,
-    voxel_size: float,
     show_filter: bool,
+    debug: bool,
 ):
     """
-    3D bandpass filter tomograms.
+    Band-pass filter tomograms in 3D.
+
+    For every run in the project (or only the runs given by --run-ids), queries the
+    tomogram of the given algorithm at the requested voxel spacing, applies a Gaussian
+    band-pass filter on the GPU, and writes the filtered tomogram back into the project
+    under a new algorithm name (the source name with -lp<freq>A and/or -hp<freq>A
+    suffixes). Runs are processed in parallel on a GPU pool.
+
+    Low-pass and high-pass cutoffs are given as resolutions in angstroms; a value of 0
+    disables that side of the filter, but both cannot be 0. Cutoffs finer than Nyquist
+    (2 * voxel_size) are rejected, and for a true band-pass the high-pass resolution must
+    be coarser than the low-pass resolution. Optionally writes a PNG preview of the filter
+    profile (filter3d.png).
+
+    URI Format:
+
+        \b
+        Tomograms: tomo_type@voxel_spacing
+
+    Examples:
+
+        \b
+        # Low-pass filter wbp tomograms at 10 A voxel spacing to 30 A resolution
+        copick process bandpass -c config.json --tomo-alg wbp \\
+            --voxel-size 10.0 --lp-freq 30.0
+
+        \b
+        # Band-pass a single run between 100 A (high-pass) and 30 A (low-pass)
+        copick process bandpass -c config.json --tomo-alg wbp \\
+            --voxel-size 10.0 --run-ids TS_001 --lp-freq 30.0 --hp-freq 100.0
+
+        \b
+        # High-pass the whole dataset and skip the filter preview PNG
+        copick process bandpass -c config.json --tomo-alg wbp \\
+            --voxel-size 10.0 --hp-freq 150.0 --show-filter false
+
+    See Also:
+
+        \b
+        copick process downsample: downsample tomograms via Fourier rescaling
     """
 
-    run_filter3d(config, run_ids, lp_freq, lp_decay, hp_freq, hp_decay, tomo_alg, voxel_size, show_filter)
+    run_filter3d(
+        config,
+        run_ids,
+        lp_freq,
+        lp_decay,
+        hp_freq,
+        hp_decay,
+        tomo_alg,
+        voxel_size,
+        show_filter,
+        debug=debug,
+    )
 
 
 def run_filter3d(
@@ -118,6 +162,7 @@ def run_filter3d(
     tomo_alg: str,
     voxel_size: float,
     show_filter: bool,
+    debug: bool = False,
 ):
     import os
 
@@ -125,6 +170,8 @@ def run_filter3d(
 
     from copick_torch import parallelization
     from copick_torch.filters.bandpass import init_filter3d, run_filter3d
+
+    logger = get_logger(__name__, debug=debug)
 
     # Input Check - Set Decay to 0 if Unused
     input_check(lp_freq, hp_freq, voxel_size)
@@ -180,7 +227,7 @@ def run_filter3d(
         pool.shutdown()
 
     save_parameters(config, [tomo_alg, voxel_size], [lp_freq, lp_decay, hp_freq, hp_decay], write_algorithm)
-    print("✅ Completed the Filtering!")
+    logger.info("✅ Completed the Filtering!")
 
 
 def get_tomo_shape(root, run_ids, tomo_alg, voxel_size):

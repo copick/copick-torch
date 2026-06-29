@@ -104,47 +104,56 @@ def picks2slab(
     - parallel: Fits two parallel planes with a shared normal vector and different
       offsets. Produces flat, rigid surfaces guaranteed to be parallel.
 
-    \b
     For the spline and coupled methods, --regularization adds a bending-energy
     (curvature) penalty: higher values flatten the fitted surface(s), which is
     useful to keep a deformed slab from over-curving.
 
-    \b
     The fitted surfaces are connected with side walls to form a closed, watertight
     slab mesh.
 
-    \b
     URI Format:
+
+        \b
         Picks: object_name:user_id/session_id
         Meshes: object_name:user_id/session_id
         Tomograms: tomo_type@voxel_spacing
 
-    \b
     Examples:
+
+        \b
         # Fit slab with flexible spline surfaces (default)
         copick convert picks2slab -c config.json \\
             -i1 "top-layer:bob/1" -i2 "bottom-layer:bob/1" \\
             -t "wbp@7.84" \\
             -o "sample:picks2slab/0"
 
+        \b
         # Fit a curved-but-parallel slab (shared surface), gently regularized
         copick convert picks2slab -c config.json \\
             -i1 "top-layer:bob/1" -i2 "bottom-layer:bob/1" \\
             -t "wbp@7.84" --method coupled --regularization 5 \\
             -o "sample:picks2slab/0"
 
+        \b
         # Fit slab with parallel planes
         copick convert picks2slab -c config.json \\
             -i1 "top-layer:bob/1" -i2 "bottom-layer:bob/1" \\
             -t "wbp@7.84" --method parallel \\
             -o "sample:picks2slab/0"
 
+        \b
         # With custom spline and mesh resolution
         copick convert picks2slab -c config.json \\
             -i1 "top-layer:user1/manual" -i2 "bottom-layer:user1/manual" \\
             -t "wbp@10.0" \\
             --grid-resolution 7 7 --fit-resolution 100 100 \\
             -o "sample:picks2slab/fitted"
+
+    See Also:
+
+        \b
+        copick convert seg2slab: fit a slab mesh to a boundary segmentation instead of picks
+        copick convert mesh2caps: extract the top/bottom cap surfaces of the resulting slab mesh
     """
     from copick_torch.fitting.slab_from_picks import slab_from_picks_lazy_batch
 

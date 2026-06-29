@@ -1,58 +1,105 @@
+"""CLI command for membrane segmentation with MemBrain-seg."""
+
 import click
+from click_option_group import optgroup
+from copick.cli.util import add_config_option, add_debug_option
+from copick.util.log import get_logger
 
 
-def segment_commands(func):
-    """Decorator to add common options to a Click command."""
-    options = [
-        click.option("--config", type=str, required=True, help="Path to Copick Config for Processing Data"),
-        click.option("--tomo-alg", type=str, required=True, help="Tomogram Algorithm to use"),
-        click.option("--voxel-size", type=float, required=False, default=10, help="Voxel Size to Query the Data"),
-        click.option(
-            "--session-id",
-            type=str,
-            required=False,
-            default="1",
-            help="Session ID for the Saved Membrane Segmentation",
-        ),
-        click.option(
-            "--user-id",
-            type=str,
-            required=False,
-            default="membrain-seg",
-            help="User ID for the Saved Membrane Segmentation",
-        ),
-        click.option(
-            "--threshold",
-            type=float,
-            required=False,
-            default=0,
-            help="Segmentation Threshold for Membrane Segmentation",
-        ),
-    ]
-    for option in reversed(options):  # Add options in reverse order to preserve correct order
-        func = option(func)
-    return func
-
-
-@click.command(context_settings={"show_default": True})
-@segment_commands
-@click.pass_context
+@click.command(
+    "membrain-seg",
+    context_settings={"show_default": True},
+    short_help="Segment membranes in tomograms with MemBrain-seg.",
+    no_args_is_help=True,
+)
+@add_config_option
+@optgroup.group("\nInput Options", help="Options related to the input tomograms.")
+@optgroup.option(
+    "--tomo-alg",
+    "-ta",
+    type=str,
+    required=True,
+    help="Tomogram algorithm/type to query and segment (e.g. 'wbp').",
+)
+@optgroup.option(
+    "--voxel-size",
+    "-vs",
+    type=float,
+    default=10.0,
+    help="Voxel spacing to query, in angstroms.",
+)
+@optgroup.group("\nTool Options", help="Options related to this tool.")
+@optgroup.option(
+    "--threshold",
+    "-t",
+    type=float,
+    default=0.0,
+    help="Segmentation threshold for the membrane probability map (0 keeps the raw map).",
+)
+@optgroup.group("\nOutput Options", help="Options related to the output segmentation.")
+@optgroup.option(
+    "--user-id",
+    "-u",
+    type=str,
+    default="membrain-seg",
+    help="User ID for the saved membrane segmentation.",
+)
+@optgroup.option(
+    "--session-id",
+    "-s",
+    type=str,
+    default="1",
+    help="Session ID for the saved membrane segmentation.",
+)
+@add_debug_option
 def membrain_seg(
-    ctx: click.Context,
     config: str,
     tomo_alg: str,
     voxel_size: float,
-    session_id: str,
     threshold: float,
     user_id: str,
+    session_id: str,
+    debug: bool,
 ):
     """
-    Runs the membrane segmentation command.
+    Segment membranes in tomograms with MemBrain-seg.
+
+    For every run in the project, queries the tomogram of the given algorithm at the
+    requested voxel spacing, runs the MemBrain-seg model with sliding-window inference
+    (using test-time augmentation and input normalization), and writes the resulting
+    membrane segmentation back into the project. Runs are processed in parallel on a
+    GPU pool.
+
+    A `threshold` of 0 stores the raw membrane probability map, while a positive
+    threshold binarizes the prediction. The model weights are downloaded automatically
+    on first use if they are not already cached. The output is saved as a segmentation
+    named `membranes`.
+
+    URI Format:
+
+        \b
+        Segmentations: name:user_id/session_id@voxel_spacing
+
+    Examples:
+
+        \b
+        # Segment membranes in wbp tomograms at 10 A
+        copick inference membrain-seg -c config.json --tomo-alg wbp --voxel-size 10.0
+
+        \b
+        # Binarize the prediction and tag the output user/session
+        copick inference membrain-seg -c config.json --tomo-alg wbp --voxel-size 10.0 \\
+            --threshold 0.5 --user-id membrain-seg --session-id 1
+
+    See Also:
+
+        \b
+        copick process downsample: downsample tomograms before segmentation
     """
-    run(config, tomo_alg, voxel_size, session_id, threshold, user_id)
+    run(config, tomo_alg, voxel_size, session_id, threshold, user_id, debug=debug)
 
 
-def run(config, tomo_alg, voxel_size, session_id, threshold, user_id):
+def run(config, tomo_alg, voxel_size, session_id, threshold, user_id, debug=False):
     """
     Runs the membrane segmentation.
     """
@@ -60,6 +107,8 @@ def run(config, tomo_alg, voxel_size, session_id, threshold, user_id):
 
     from copick_torch import parallelization
     from copick_torch.inference import membrain_seg
+
+    logger = get_logger(__name__, debug=debug)
 
     print("Starting Membrane Segmentation...")
     print(f"Using Tomograms with Voxel Size: {voxel_size} and Algorithm: {tomo_alg}")
@@ -93,7 +142,7 @@ def run(config, tomo_alg, voxel_size, session_id, threshold, user_id):
         pool.shutdown()
 
     save_parameters(config, tomo_alg, voxel_size, session_id, user_id, threshold)
-    print("✅ Completed the Membrane Segmentation!")
+    logger.info("✅ Completed the Membrane Segmentation!")
 
 
 def run_segmenter(run, tomo_alg, voxel_size, session_id, threshold, user_id, gpu_id, models):

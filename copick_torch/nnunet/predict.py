@@ -497,7 +497,11 @@ class nnUNetPredictor:  # noqa: N801
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 
-@click.command("nnunet", no_args_is_help=True)
+@click.command(
+    "nnunet",
+    no_args_is_help=True,
+    short_help="Run nnUNet inference on CoPick tomograms.",
+)
 @click.option("-c", "--config", required=True, type=click.Path(exists=True), help="Path to copick config.json")
 @click.option("-p", "--plans", required=True, type=click.Path(exists=True), help="Path to nnunet plans.json")
 @click.option("-d", "--dataset", required=True, type=click.Path(exists=True), help="Path to nnunet dataset.json")
@@ -521,7 +525,42 @@ class nnUNetPredictor:  # noqa: N801
     help="Segmentation URI to write (name:user_id/session_id)",
 )
 def cli(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri):
-    """Run nnUNet inference on CoPick tomograms and write predictions back."""
+    """
+    Run nnUNet inference on CoPick tomograms.
+
+    For every run in the project, queries the requested tomogram, runs sliding-window
+    nnUNet prediction, and writes the resulting segmentation back into the CoPick
+    project. All available GPUs are used automatically, with run IDs sharded across
+    devices for batch inference.
+
+    Repeat `-w/--weights` to ensemble multiple folds (logits are averaged before
+    argmax). Both standard nnUNet and MedNeXt trainers are supported; the trainer
+    class is resolved from the checkpoint metadata.
+
+    Examples:
+
+        \b
+        # Segment all runs with a single-fold model, writing to predict:nnunet/1
+        copick inference nnunet -c config.json -p plans.json -d dataset.json \\
+            -w fold_0/checkpoint_best.pth -turi wbp@10.0
+
+        \b
+        # Ensemble multiple folds and write to a custom segmentation URI
+        copick inference nnunet -c config.json -p plans.json -d dataset.json \\
+            -w fold_0/checkpoint_best.pth -w fold_1/checkpoint_best.pth \\
+            -suri membrane:nnunet/1
+
+        \b
+        # Predict only specific runs with mirroring TTA disabled
+        copick inference nnunet -c config.json -p plans.json -d dataset.json \\
+            -w fold_0/checkpoint_best.pth -runs TS_01,TS_02 --tta False
+
+    See Also:
+
+        \b
+        copick convert nnunet: build the nnUNet training dataset from a CoPick project
+        copick training nnunet: train the nnUNet model used for inference
+    """
     run_predict(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri)
 
 
