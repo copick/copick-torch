@@ -5472,7 +5472,7 @@ wheels = [
 
 [[package]]
 name = "torch-cubic-spline-grids"
-version = "0.5.0"
+version = "0.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "einops" },
@@ -5480,9 +5480,9 @@ dependencies = [
     { name = "torch" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b4/f3/7ed395e615571c267d33bdaaf47f9298196c06a57fe958200262c95643a8/torch_cubic_spline_grids-0.5.0.tar.gz", hash = "sha256:ed6206b3e58523b7ec2e16fd0a3f92fc8cd350b223e20e4197c7994bdf1e19e0", size = 147671, upload-time = "2026-04-14T16:10:19.546Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/13/ed540ceb57662e3dfb4fab92d18ec4beb20c22396ef2800252d8595ab816/torch_cubic_spline_grids-0.5.2.tar.gz", hash = "sha256:5c9b8e904bc910cbbf485b6c06d1cb8a81760223f83ef7f760b4cb629947a0da", size = 147670, upload-time = "2026-06-08T21:13:40.423Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/8e/1fea801b03177fb68dfec8afa4927fd51529dcef532ef17a73ace9f8344d/torch_cubic_spline_grids-0.5.0-py3-none-any.whl", hash = "sha256:7d5b749c9af376c9015674c7ff8ea65d68d1bdce4bcf4dd8dbed6eb00e2b9f8e", size = 14906, upload-time = "2026-04-14T16:10:18.261Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/ce/2abb5e7c7fd7aec12a89b1c3fe5fe8f3a589ce603e14ab0cfc9d742344b5/torch_cubic_spline_grids-0.5.2-py3-none-any.whl", hash = "sha256:bdf1a10ecd7563e3e91e54be4fe5596f07ea48e1b87c8655c71475130e590f5d", size = 14905, upload-time = "2026-06-08T21:13:39.068Z" },
 ]
 
 [[package]]
