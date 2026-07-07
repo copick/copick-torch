@@ -165,11 +165,14 @@ def downsample_init(gpu_id: int, voxel_size: float, target_resolution: float):
     return downsampler
 
 
-def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, gpu_id, models):
+def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source, write_algorithm, gpu_id, models):
     """
     Runs the downsampler class.
     """
     from copick_utils.io import readers, writers
+
+    # Output tomogram type (defaults to the source algorithm when not renamed)
+    write_algorithm = write_algorithm or tomo_alg
 
     # Get the Downsampler
     downsampler = models
@@ -186,7 +189,7 @@ def run_downsampler(run, tomo_alg, voxel_size, target_resolution, delete_source,
     downsampled_tomo = downsampler.run(tomo)
 
     # Save the Downsampled Tomogram
-    writers.tomogram(run, downsampled_tomo, target_resolution, tomo_alg)
+    writers.tomogram(run, downsampled_tomo, target_resolution, write_algorithm)
 
     # Delete the source tomograms if requested
     if delete_source:

@@ -8,8 +8,11 @@ from copick.cli.util import (
     add_deprecated_run_alias,
     add_run_names_option,
     resolve_run_names,
+    resolve_tomogram_uri,
 )
 from copick.util.log import get_logger
+from copick.util.uri import parse_copick_uri
+from copick_utils.cli.util import add_input_option, add_output_option
 
 
 def input_check(lp_res, hp_res, apix):
@@ -55,10 +58,27 @@ def print_header(lp_freq, lp_decay, hp_freq, hp_decay):
 )
 @add_config_option
 @add_run_names_option
+# TODO:remove once deprecation takes effect
 @add_deprecated_run_alias("--run-ids")
 @optgroup.group("\nInput Options", help="Options related to the input tomograms.")
-@optgroup.option("--tomo-alg", type=str, required=True, help="Tomogram Algorithm to use")
-@optgroup.option("--voxel-size", type=float, required=False, default=10, help="Voxel Size to Query the Data")
+@add_input_option("tomogram", required=False)
+# TODO:remove once deprecation takes effect -- legacy --tomo-alg/--voxel-size fallback
+@optgroup.option(
+    "--tomo-alg",
+    type=str,
+    default=None,
+    hidden=True,
+    help="Deprecated: use -i/--input <tomo_type>@<voxel_spacing>.",
+)
+@optgroup.option(
+    "--voxel-size",
+    type=float,
+    default=None,
+    hidden=True,
+    help="Deprecated: use -i/--input <tomo_type>@<voxel_spacing>.",
+)
+@optgroup.group("\nOutput Options", help="Options related to the output tomograms.")
+@add_output_option("tomogram", required=False)
 @optgroup.group("\nTool Options", help="Options related to this tool.")
 @optgroup.option(
     "--lp-freq",
@@ -88,8 +108,10 @@ def bandpass(
     config: str,
     run_names,
     legacy_run_names,
-    tomo_alg: str,
-    voxel_size: float,
+    input_uri,
+    tomo_alg,
+    voxel_size,
+    output_uri,
     lp_freq: float,
     lp_decay: float,
     hp_freq: float,
@@ -101,10 +123,11 @@ def bandpass(
     Band-pass filter tomograms in 3D.
 
     For every run in the project (or only the runs given by --run-names/-r), queries the
-    tomogram of the given algorithm at the requested voxel spacing, applies a Gaussian
-    band-pass filter on the GPU, and writes the filtered tomogram back into the project
-    under a new algorithm name (the source name with -lp<freq>A and/or -hp<freq>A
-    suffixes). Runs are processed in parallel on a GPU pool.
+    input tomogram, applies a Gaussian band-pass filter on the GPU, and writes the
+    filtered tomogram back into the project. The output is named by -o/--output, or (when
+    omitted) the source name with -lp<freq>A and/or -hp<freq>A suffixes. Band-pass does
+    not resample, so the output voxel spacing matches the input. Runs are processed in
+    parallel on a GPU pool.
 
     Low-pass and high-pass cutoffs are given as resolutions in angstroms; a value of 0
     disables that side of the filter, but both cannot be 0. Cutoffs finer than Nyquist
@@ -121,18 +144,17 @@ def bandpass(
 
         \b
         # Low-pass filter wbp tomograms at 10 A voxel spacing to 30 A resolution
-        copick process bandpass -c config.json --tomo-alg wbp \\
-            --voxel-size 10.0 --lp-freq 30.0
+        copick process bandpass -c config.json -i wbp@10.0 --lp-freq 30.0
 
         \b
         # Band-pass a single run between 100 A (high-pass) and 30 A (low-pass)
-        copick process bandpass -c config.json --tomo-alg wbp \\
-            --voxel-size 10.0 -r TS_001 --lp-freq 30.0 --hp-freq 100.0
+        copick process bandpass -c config.json -i wbp@10.0 -r TS_001 \\
+            --lp-freq 30.0 --hp-freq 100.0
 
         \b
-        # High-pass the whole dataset and skip the filter preview PNG
-        copick process bandpass -c config.json --tomo-alg wbp \\
-            --voxel-size 10.0 --hp-freq 150.0 --show-filter false
+        # High-pass the whole dataset into a named output, skipping the preview PNG
+        copick process bandpass -c config.json -i wbp@10.0 -o wbp-hp150A@10.0 \\
+            --hp-freq 150.0 --show-filter false
 
     See Also:
 
@@ -141,7 +163,16 @@ def bandpass(
     """
 
     logger = get_logger(__name__, debug=debug)
+    # TODO:remove once deprecation takes effect -- drop legacy_run_names arg
     run_names_list = resolve_run_names(run_names, legacy_run_names, legacy_flag="--run-ids", logger=logger)
+
+    in_uri = resolve_tomogram_uri(input_uri, tomo_alg, voxel_size, logger=logger)
+    in_params = parse_copick_uri(in_uri, "tomogram")
+    in_tomo = in_params["tomo_type"]
+    in_vs = float(in_params["voxel_spacing"])
+
+    # -o overrides the auto-derived output name (band-pass keeps the input voxel spacing)
+    write_override = parse_copick_uri(output_uri, "tomogram")["tomo_type"] if output_uri else None
 
     run_filter3d(
         config,
@@ -150,9 +181,10 @@ def bandpass(
         lp_decay,
         hp_freq,
         hp_decay,
-        tomo_alg,
-        voxel_size,
+        in_tomo,
+        in_vs,
         show_filter,
+        write_override=write_override,
         debug=debug,
     )
 
@@ -167,6 +199,7 @@ def run_filter3d(
     tomo_alg: str,
     voxel_size: float,
     show_filter: bool,
+    write_override: str = None,
     debug: bool = False,
 ):
     import os
@@ -197,12 +230,15 @@ def run_filter3d(
     if run_ids is None:
         run_ids = [run.name for run in root.runs]
 
-    # Determine Write Algorithm
-    write_algorithm = tomo_alg
-    if lp_freq > 0:
-        write_algorithm = write_algorithm + f"-lp{lp_freq:0.0f}A"
-    if hp_freq > 0:
-        write_algorithm = write_algorithm + f"-hp{hp_freq:0.0f}A"
+    # Determine Write Algorithm (-o overrides the auto-derived suffix name)
+    if write_override:
+        write_algorithm = write_override
+    else:
+        write_algorithm = tomo_alg
+        if lp_freq > 0:
+            write_algorithm = write_algorithm + f"-lp{lp_freq:0.0f}A"
+        if hp_freq > 0:
+            write_algorithm = write_algorithm + f"-hp{hp_freq:0.0f}A"
 
     # Get Volume Shape
     vol_shape = get_tomo_shape(root, run_ids, tomo_alg, voxel_size)

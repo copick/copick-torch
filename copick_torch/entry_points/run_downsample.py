@@ -7,8 +7,11 @@ from copick.cli.util import (
     add_debug_option,
     add_run_names_option,
     resolve_run_names,
+    resolve_tomogram_uri,
 )
 from copick.util.log import get_logger
+from copick.util.uri import parse_copick_uri
+from copick_utils.cli.util import add_input_option, add_output_option
 
 
 @click.command(
@@ -20,28 +23,36 @@ from copick.util.log import get_logger
 @add_config_option
 @add_run_names_option
 @optgroup.group("\nInput Options", help="Options related to the input tomograms.")
+@add_input_option("tomogram", required=False)
+# TODO:remove once deprecation takes effect -- legacy --tomo-alg/--voxel-size fallback
 @optgroup.option(
     "--tomo-alg",
     "-ta",
     type=str,
-    required=True,
-    help="Tomogram algorithm/type to query and downsample (e.g. 'wbp').",
+    default=None,
+    hidden=True,
+    help="Deprecated: use -i/--input <tomo_type>@<voxel_spacing>.",
 )
 @optgroup.option(
     "--voxel-size",
     "-vs",
     type=float,
-    default=10.0,
-    help="Source voxel spacing to query, in angstroms.",
+    default=None,
+    hidden=True,
+    help="Deprecated: use -i/--input <tomo_type>@<voxel_spacing>.",
 )
-@optgroup.group("\nTool Options", help="Options related to this tool.")
+@optgroup.group("\nOutput Options", help="Options related to the output tomograms.")
+@add_output_option("tomogram", required=False)
+# TODO:remove once deprecation takes effect -- legacy --target-resolution fallback
 @optgroup.option(
     "--target-resolution",
     "-tr",
     type=float,
-    default=10.0,
-    help="Target voxel spacing to downsample to, in angstroms.",
+    default=None,
+    hidden=True,
+    help="Deprecated: use -o/--output <tomo_type>@<voxel_spacing>.",
 )
+@optgroup.group("\nTool Options", help="Options related to this tool.")
 @optgroup.option(
     "--delete-source/--keep-source",
     is_flag=True,
@@ -52,9 +63,11 @@ from copick.util.log import get_logger
 def downsample(
     config: str,
     run_names,
-    tomo_alg: str,
-    voxel_size: float,
-    target_resolution: float,
+    input_uri,
+    tomo_alg,
+    voxel_size,
+    output_uri,
+    target_resolution,
     delete_source: bool,
     debug: bool,
 ):
@@ -62,9 +75,9 @@ def downsample(
     Downsample tomograms on the GPU with Fourier rescaling.
 
     For every run in the project (or only the runs given by --run-names/-r), queries
-    the tomogram of the given algorithm at the source voxel spacing, Fourier-rescales
-    it to the target voxel spacing on the GPU, and writes the downsampled tomogram back
-    into the project. Runs are processed in parallel on a GPU pool.
+    the input tomogram, Fourier-rescales it to the output voxel spacing on the GPU, and
+    writes the downsampled tomogram back into the project. The output voxel spacing (and
+    optional rename) is taken from -o/--output. Runs are processed in parallel on a GPU pool.
 
     URI Format:
 
@@ -75,23 +88,58 @@ def downsample(
 
         \b
         # Downsample wbp tomograms from 10 A to 20 A
-        copick process downsample -c config.json --tomo-alg wbp \\
-            --voxel-size 10.0 --target-resolution 20.0
+        copick process downsample -c config.json -i wbp@10.0 -o wbp@20.0
 
         \b
-        # Downsample, then delete the source tomograms
-        copick process downsample -c config.json --tomo-alg wbp \\
-            --voxel-size 10.0 --target-resolution 20.0 --delete-source
+        # Downsample and rename the output, then delete the source tomograms
+        copick process downsample -c config.json -i wbp@10.0 -o wbp-bin2@20.0 --delete-source
 
     See Also:
 
         \b
         copick process bandpass: band-pass filter tomograms without resampling
     """
-    run(config, tomo_alg, voxel_size, target_resolution, delete_source, run_names=run_names, debug=debug)
+    logger = get_logger(__name__, debug=debug)
+
+    in_uri = resolve_tomogram_uri(input_uri, tomo_alg, voxel_size, logger=logger)
+    in_params = parse_copick_uri(in_uri, "tomogram")
+    in_tomo = in_params["tomo_type"]
+    in_vs = float(in_params["voxel_spacing"])
+
+    if output_uri:
+        out_params = parse_copick_uri(output_uri, "tomogram")
+        out_tomo = out_params["tomo_type"]
+        out_vs = float(out_params["voxel_spacing"])
+    # TODO:remove once deprecation takes effect -- legacy --target-resolution fallback
+    elif target_resolution is not None:
+        logger.warning("--target-resolution is deprecated; use -o/--output <tomo_type>@<voxel_spacing>.")
+        out_tomo = in_tomo
+        out_vs = target_resolution
+    else:
+        raise click.UsageError("Provide the output via -o/--output <tomo_type>@<voxel_spacing>.")
+
+    run(
+        config,
+        in_tomo,
+        in_vs,
+        out_vs,
+        delete_source,
+        write_algorithm=out_tomo,
+        run_names=run_names,
+        debug=debug,
+    )
 
 
-def run(config, tomo_alg, voxel_size, target_resolution, delete_source, run_names=None, debug=False):
+def run(
+    config,
+    tomo_alg,
+    voxel_size,
+    target_resolution,
+    delete_source,
+    write_algorithm=None,
+    run_names=None,
+    debug=False,
+):
     """
     Runs the downsampling.
     """
@@ -104,6 +152,8 @@ def run(config, tomo_alg, voxel_size, target_resolution, delete_source, run_name
 
     logger = get_logger(__name__, debug=debug)
 
+    write_algorithm = write_algorithm or tomo_alg
+
     root = copick.from_file(config)
     run_names_list = resolve_run_names(run_names, logger=logger)
     runs = get_runs(root, run_names_list)
@@ -115,7 +165,7 @@ def run(config, tomo_alg, voxel_size, target_resolution, delete_source, run_name
         verbose=True,
     )
 
-    tasks = [(r, tomo_alg, voxel_size, target_resolution, delete_source) for r in runs]
+    tasks = [(r, tomo_alg, voxel_size, target_resolution, delete_source, write_algorithm) for r in runs]
 
     # Execute
     try:

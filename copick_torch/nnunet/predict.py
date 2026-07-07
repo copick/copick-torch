@@ -520,6 +520,7 @@ class nnUNetPredictor:  # noqa: N801
 @click.option("-turi", "--tomo-uri", type=str, default="wbp@10.0", help="Tomogram URI to predict")
 @click.option("--tta", type=bool, default=True, help="Enable mirroring TTA.")
 @add_run_names_option
+# TODO:remove once deprecation takes effect
 @add_deprecated_run_alias("--run-ids", "-runs")
 @click.option(
     "-suri",
@@ -566,6 +567,7 @@ def cli(config, plans, dataset, tomo_uri, weights, tta, run_names, legacy_run_na
         copick training nnunet: train the nnUNet model used for inference
     """
     logger = get_logger(__name__)
+    # TODO:remove once deprecation takes effect -- drop legacy_run_names arg
     run_ids_list = resolve_run_names(run_names, legacy_run_names, legacy_flag="--run-ids", logger=logger)
     run_predict(config, plans, dataset, tomo_uri, weights, tta, run_ids_list, seg_uri)
 
