@@ -32,7 +32,7 @@ dependencies = [
     "copick-utils>=1.7.0",
     "scikit-image",
     "scipy",
-    "copick>=1.20.0",
+    "copick>=1.26.0",
     "zarr",
     "mrcfile",
     "gdown",

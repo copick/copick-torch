@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -887,7 +887,7 @@ wheels = [
 
 [[package]]
 name = "copick"
-version = "1.24.1"
+version = "1.26.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -917,9 +917,9 @@ dependencies = [
     { name = "trimesh" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/97/b0/b51272bbb882241e6f45edcc1d8cf4256c69244616d4cabdbad10ec28284/copick-1.24.1.tar.gz", hash = "sha256:6197cc9b939c1d04e40d912b8f654ea639d534c23348ed1a86316ea6ec4832c1", size = 9426087, upload-time = "2026-05-05T03:27:28.617Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/9b/29f6db0b642e45a3b761f442204c971b098653c4f22f151b86779490d953/copick-1.26.0.tar.gz", hash = "sha256:7ca35d829caa1dd911946d4e1393196224493ddf7b896b339ce023f88119db41", size = 47782928, upload-time = "2026-07-07T22:08:20.01Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/2c/1e80dda158f7a8178ec8d42e0fa2cc079e815fecb66c82dca4dc5f352f68/copick-1.24.1-py3-none-any.whl", hash = "sha256:e774f3a685cb9ce5dc8bcdbee922d48382c67275bcd2236f3842970b5262df6a", size = 197915, upload-time = "2026-05-05T03:27:26.636Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/09/a9cd473da5efa7fded7a67cb8d3194269497cbdb4552e1b1d50f8052910d/copick-1.26.0-py3-none-any.whl", hash = "sha256:d6bbc53162d75ca1443d01b2cdb3ccac4fcc5cba9f2ec526d6f1f041b82b823f", size = 223179, upload-time = "2026-07-07T22:08:17.758Z" },
 ]
 
 [[package]]
@@ -972,7 +972,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
-    { name = "copick", specifier = ">=1.20.0" },
+    { name = "copick", specifier = ">=1.26.0" },
     { name = "copick-utils", specifier = ">=1.7.0" },
     { name = "dask" },
     { name = "einops" },
