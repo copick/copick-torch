@@ -2,7 +2,12 @@
 
 import click
 from click_option_group import optgroup
-from copick.cli.util import add_config_option, add_debug_option
+from copick.cli.util import (
+    add_config_option,
+    add_debug_option,
+    add_run_names_option,
+    resolve_run_names,
+)
 from copick.util.log import get_logger
 
 
@@ -13,6 +18,7 @@ from copick.util.log import get_logger
     no_args_is_help=True,
 )
 @add_config_option
+@add_run_names_option
 @optgroup.group("\nInput Options", help="Options related to the input tomograms.")
 @optgroup.option(
     "--tomo-alg",
@@ -45,6 +51,7 @@ from copick.util.log import get_logger
 @add_debug_option
 def downsample(
     config: str,
+    run_names,
     tomo_alg: str,
     voxel_size: float,
     target_resolution: float,
@@ -54,10 +61,10 @@ def downsample(
     """
     Downsample tomograms on the GPU with Fourier rescaling.
 
-    For every run in the project, queries the tomogram of the given algorithm at the
-    source voxel spacing, Fourier-rescales it to the target voxel spacing on the GPU,
-    and writes the downsampled tomogram back into the project. Runs are processed in
-    parallel on a GPU pool.
+    For every run in the project (or only the runs given by --run-names/-r), queries
+    the tomogram of the given algorithm at the source voxel spacing, Fourier-rescales
+    it to the target voxel spacing on the GPU, and writes the downsampled tomogram back
+    into the project. Runs are processed in parallel on a GPU pool.
 
     URI Format:
 
@@ -81,15 +88,16 @@ def downsample(
         \b
         copick process bandpass: band-pass filter tomograms without resampling
     """
-    run(config, tomo_alg, voxel_size, target_resolution, delete_source, debug=debug)
+    run(config, tomo_alg, voxel_size, target_resolution, delete_source, run_names=run_names, debug=debug)
 
 
-def run(config, tomo_alg, voxel_size, target_resolution, delete_source, debug=False):
+def run(config, tomo_alg, voxel_size, target_resolution, delete_source, run_names=None, debug=False):
     """
     Runs the downsampling.
     """
 
     import copick
+    from copick.ops.get import get_runs
 
     from copick_torch import parallelization
     from copick_torch.filters import downsample
@@ -97,7 +105,9 @@ def run(config, tomo_alg, voxel_size, target_resolution, delete_source, debug=Fa
     logger = get_logger(__name__, debug=debug)
 
     root = copick.from_file(config)
-    run_ids = [run.name for run in root.runs]
+    run_names_list = resolve_run_names(run_names, logger=logger)
+    runs = get_runs(root, run_names_list)
+    run_ids = [r.name for r in runs]
 
     pool = parallelization.GPUPool(
         init_fn=downsample.downsample_init,
@@ -105,7 +115,7 @@ def run(config, tomo_alg, voxel_size, target_resolution, delete_source, debug=Fa
         verbose=True,
     )
 
-    tasks = [(run, tomo_alg, voxel_size, target_resolution, delete_source) for run in root.runs]
+    tasks = [(r, tomo_alg, voxel_size, target_resolution, delete_source) for r in runs]
 
     # Execute
     try:

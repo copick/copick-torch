@@ -20,6 +20,9 @@ import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from copick.cli.util import add_deprecated_run_alias, add_run_names_option, resolve_run_names
+from copick.util.log import get_logger
+
 if TYPE_CHECKING:
     import numpy as np
 
@@ -516,7 +519,8 @@ class nnUNetPredictor:  # noqa: N801
 )
 @click.option("-turi", "--tomo-uri", type=str, default="wbp@10.0", help="Tomogram URI to predict")
 @click.option("--tta", type=bool, default=True, help="Enable mirroring TTA.")
-@click.option("--run-ids", "-runs", type=str, default=None, help="CoPick run IDs to predict (comma-separated).")
+@add_run_names_option
+@add_deprecated_run_alias("--run-ids", "-runs")
 @click.option(
     "-suri",
     "--seg-uri",
@@ -524,11 +528,11 @@ class nnUNetPredictor:  # noqa: N801
     default="predict:nnunet/1",
     help="Segmentation URI to write (name:user_id/session_id)",
 )
-def cli(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri):
+def cli(config, plans, dataset, tomo_uri, weights, tta, run_names, legacy_run_names, seg_uri):
     """
     Run nnUNet inference on CoPick tomograms.
 
-    For every run in the project, queries the requested tomogram, runs sliding-window
+    For every run in the project (or only the runs given by --run-names/-r), queries the requested tomogram, runs sliding-window
     nnUNet prediction, and writes the resulting segmentation back into the CoPick
     project. All available GPUs are used automatically, with run IDs sharded across
     devices for batch inference.
@@ -553,7 +557,7 @@ def cli(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri):
         \b
         # Predict only specific runs with mirroring TTA disabled
         copick inference nnunet -c config.json -p plans.json -d dataset.json \\
-            -w fold_0/checkpoint_best.pth -runs TS_01,TS_02 --tta False
+            -w fold_0/checkpoint_best.pth -r TS_01 -r TS_02 --tta False
 
     See Also:
 
@@ -561,11 +565,13 @@ def cli(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri):
         copick convert nnunet: build the nnUNet training dataset from a CoPick project
         copick training nnunet: train the nnUNet model used for inference
     """
-    run_predict(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri)
+    logger = get_logger(__name__)
+    run_ids_list = resolve_run_names(run_names, legacy_run_names, legacy_flag="--run-ids", logger=logger)
+    run_predict(config, plans, dataset, tomo_uri, weights, tta, run_ids_list, seg_uri)
 
 
 def run_predict(config, plans, dataset, tomo_uri, weights, tta, run_ids, seg_uri):
-    run_ids_list = run_ids.split(",") if run_ids else None
+    run_ids_list = list(run_ids) if run_ids else None
 
     predictor = nnUNetPredictor(
         plans=plans,

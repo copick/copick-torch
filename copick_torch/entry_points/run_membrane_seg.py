@@ -2,7 +2,12 @@
 
 import click
 from click_option_group import optgroup
-from copick.cli.util import add_config_option, add_debug_option
+from copick.cli.util import (
+    add_config_option,
+    add_debug_option,
+    add_run_names_option,
+    resolve_run_names,
+)
 from copick.util.log import get_logger
 
 
@@ -13,6 +18,7 @@ from copick.util.log import get_logger
     no_args_is_help=True,
 )
 @add_config_option
+@add_run_names_option
 @optgroup.group("\nInput Options", help="Options related to the input tomograms.")
 @optgroup.option(
     "--tomo-alg",
@@ -54,6 +60,7 @@ from copick.util.log import get_logger
 @add_debug_option
 def membrain_seg(
     config: str,
+    run_names,
     tomo_alg: str,
     voxel_size: float,
     threshold: float,
@@ -64,7 +71,8 @@ def membrain_seg(
     """
     Segment membranes in tomograms with MemBrain-seg.
 
-    For every run in the project, queries the tomogram of the given algorithm at the
+    For every run in the project (or only the runs given by --run-names/-r), queries
+    the tomogram of the given algorithm at the
     requested voxel spacing, runs the MemBrain-seg model with sliding-window inference
     (using test-time augmentation and input normalization), and writes the resulting
     membrane segmentation back into the project. Runs are processed in parallel on a
@@ -96,14 +104,15 @@ def membrain_seg(
         \b
         copick process downsample: downsample tomograms before segmentation
     """
-    run(config, tomo_alg, voxel_size, session_id, threshold, user_id, debug=debug)
+    run(config, tomo_alg, voxel_size, session_id, threshold, user_id, run_names=run_names, debug=debug)
 
 
-def run(config, tomo_alg, voxel_size, session_id, threshold, user_id, debug=False):
+def run(config, tomo_alg, voxel_size, session_id, threshold, user_id, run_names=None, debug=False):
     """
     Runs the membrane segmentation.
     """
     import copick
+    from copick.ops.get import get_runs
 
     from copick_torch import parallelization
     from copick_torch.inference import membrain_seg
@@ -117,7 +126,9 @@ def run(config, tomo_alg, voxel_size, session_id, threshold, user_id, debug=Fals
 
     # Read Copick Project and Get Runs
     root = copick.from_file(config)
-    run_ids = [run.name for run in root.runs]
+    run_names_list = resolve_run_names(run_names, logger=logger)
+    runs = get_runs(root, run_names_list)
+    run_ids = [r.name for r in runs]
 
     # Initialize Parallelization Pool
     pool = parallelization.GPUPool(
@@ -128,7 +139,7 @@ def run(config, tomo_alg, voxel_size, session_id, threshold, user_id, debug=Fals
     # Check to see if model is available
     # If not, download it
 
-    tasks = [(run, tomo_alg, voxel_size, session_id, threshold, user_id) for run in root.runs]
+    tasks = [(r, tomo_alg, voxel_size, session_id, threshold, user_id) for r in runs]
 
     # Execute
     try:

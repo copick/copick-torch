@@ -2,7 +2,13 @@
 
 import click
 from click_option_group import optgroup
-from copick.cli.util import add_config_option, add_debug_option
+from copick.cli.util import (
+    add_config_option,
+    add_debug_option,
+    add_deprecated_run_alias,
+    add_run_names_option,
+    resolve_run_names,
+)
 from copick.util.log import get_logger
 
 
@@ -48,14 +54,9 @@ def print_header(lp_freq, lp_decay, hp_freq, hp_decay):
     no_args_is_help=True,
 )
 @add_config_option
+@add_run_names_option
+@add_deprecated_run_alias("--run-ids")
 @optgroup.group("\nInput Options", help="Options related to the input tomograms.")
-@optgroup.option(
-    "--run-ids",
-    type=str,
-    required=False,
-    default=None,
-    help="Run ID to process (No Input would process the entire dataset.)",
-)
 @optgroup.option("--tomo-alg", type=str, required=True, help="Tomogram Algorithm to use")
 @optgroup.option("--voxel-size", type=float, required=False, default=10, help="Voxel Size to Query the Data")
 @optgroup.group("\nTool Options", help="Options related to this tool.")
@@ -85,7 +86,8 @@ def print_header(lp_freq, lp_decay, hp_freq, hp_decay):
 @add_debug_option
 def bandpass(
     config: str,
-    run_ids: str,
+    run_names,
+    legacy_run_names,
     tomo_alg: str,
     voxel_size: float,
     lp_freq: float,
@@ -98,7 +100,7 @@ def bandpass(
     """
     Band-pass filter tomograms in 3D.
 
-    For every run in the project (or only the runs given by --run-ids), queries the
+    For every run in the project (or only the runs given by --run-names/-r), queries the
     tomogram of the given algorithm at the requested voxel spacing, applies a Gaussian
     band-pass filter on the GPU, and writes the filtered tomogram back into the project
     under a new algorithm name (the source name with -lp<freq>A and/or -hp<freq>A
@@ -125,7 +127,7 @@ def bandpass(
         \b
         # Band-pass a single run between 100 A (high-pass) and 30 A (low-pass)
         copick process bandpass -c config.json --tomo-alg wbp \\
-            --voxel-size 10.0 --run-ids TS_001 --lp-freq 30.0 --hp-freq 100.0
+            --voxel-size 10.0 -r TS_001 --lp-freq 30.0 --hp-freq 100.0
 
         \b
         # High-pass the whole dataset and skip the filter preview PNG
@@ -138,9 +140,12 @@ def bandpass(
         copick process downsample: downsample tomograms via Fourier rescaling
     """
 
+    logger = get_logger(__name__, debug=debug)
+    run_names_list = resolve_run_names(run_names, legacy_run_names, legacy_flag="--run-ids", logger=logger)
+
     run_filter3d(
         config,
-        run_ids,
+        run_names_list,
         lp_freq,
         lp_decay,
         hp_freq,
@@ -188,11 +193,9 @@ def run_filter3d(
 
     print_header(lp_freq, lp_decay, hp_freq, hp_decay)
 
-    # Get Run IDs
+    # Get Run IDs (already resolved to a list of run names, or None for all runs)
     if run_ids is None:
         run_ids = [run.name for run in root.runs]
-    else:
-        run_ids = run_ids.split(",")
 
     # Determine Write Algorithm
     write_algorithm = tomo_alg
