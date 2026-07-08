@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.2.0](https://github.com/copick/copick-torch/compare/copick-torch-v1.1.1...copick-torch-v1.2.0) (2026-07-08)
+
+
+### ✨ Features
+
+* Normalize run options across copick-torch CLI ([#124](https://github.com/copick/copick-torch/issues/124)) ([cc22bf6](https://github.com/copick/copick-torch/commit/cc22bf6909f6b11770e1c33c0073bac396e64c7b))
+
+
+### 🐞 Bug Fixes
+
+* bump chanzuckerberg/github-actions from 6.26.3 to 6.29.4 ([#119](https://github.com/copick/copick-torch/issues/119)) ([0882824](https://github.com/copick/copick-torch/commit/08828248c4baf8c5695471910e7c7fab35754d64))
+* bump gdown from 6.0.0 to 6.1.0 ([#120](https://github.com/copick/copick-torch/issues/120)) ([8314fb5](https://github.com/copick/copick-torch/commit/8314fb569f75deb8f8343734736d23a577122718))
+* bump numpy from 2.4.4 to 2.4.6 ([#121](https://github.com/copick/copick-torch/issues/121)) ([2342d41](https://github.com/copick/copick-torch/commit/2342d41a9c0147051d1ac05fe6c382d25ab70be9))
+* bump ruff from 0.15.12 to 0.15.20 ([#122](https://github.com/copick/copick-torch/issues/122)) ([ac4f088](https://github.com/copick/copick-torch/commit/ac4f0881c95dab5ec03ac35d49273e41adcd8b03))
+* bump tox from 4.53.1 to 4.56.1 ([#123](https://github.com/copick/copick-torch/issues/123)) ([36da661](https://github.com/copick/copick-torch/commit/36da66178639e7b8af00d523cf78646accb8b1ad))
+* Normalize more CLI flags. ([#126](https://github.com/copick/copick-torch/issues/126)) ([af8c596](https://github.com/copick/copick-torch/commit/af8c5965c754ed4015d6f8917604e990aa6ce863))
+
 ## [1.1.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.1.0...copick-torch-v1.1.1) (2026-06-29)
 
 
