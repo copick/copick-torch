@@ -83,3 +83,23 @@ def test_no_metadata_blind_literal_level_selection_remains():
                     violations.append((path.relative_to(REPOSITORY_ROOT), node.lineno, node.slice.value))
 
     assert violations == []
+
+
+def test_only_storage_module_requests_an_entity_store():
+    calls = []
+    for path in maintained_sources():
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "zarr":
+                calls.append((path.relative_to(REPOSITORY_ROOT).as_posix(), node.lineno))
+
+    assert len(calls) == 1
+    assert calls[0][0] == "copick_torch/storage.py"
+
+
+def test_dependency_metadata_enforces_the_published_core_zarr_contract():
+    metadata = (REPOSITORY_ROOT / "pyproject.toml").read_text()
+
+    assert '"copick>=2.0.0-alpha.1,<3"' in metadata
+    assert '"zarr>=3.1.6,<4"' in metadata
+    assert "numcodecs" not in metadata
+    assert "Programming Language :: Python :: 3.10" not in metadata
