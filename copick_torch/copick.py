@@ -11,7 +11,6 @@ import copick
 import numpy as np
 import pandas as pd
 import torch
-import zarr
 from scipy.ndimage import gaussian_filter
 from torch.utils.data import ConcatDataset, Dataset, Subset
 

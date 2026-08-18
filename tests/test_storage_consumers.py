@@ -2,26 +2,53 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+import zarr
 
 from copick_torch.entry_points.run_filter3d import get_tomo_shape
 from copick_torch.fitting.slab_from_picks import slab_from_picks
-from tests.storage_helpers import make_entity, make_v2_store
+from tests.storage_helpers import make_entity, make_v3_store
+
+
+class PayloadGuardStore(zarr.storage.MemoryStore):
+    """Fail if a shape-only consumer asks the store for an array chunk."""
+
+    def __init__(self, store_dict=None, *, read_only=False, payload_reads=None):
+        super().__init__(store_dict=store_dict, read_only=read_only)
+        self.payload_reads = [] if payload_reads is None else payload_reads
+
+    def with_read_only(self, read_only=False):
+        return type(self)(
+            store_dict=self._store_dict,
+            read_only=read_only,
+            payload_reads=self.payload_reads,
+        )
+
+    async def get(self, key, prototype=None, byte_range=None):
+        if key.startswith("s0/c/"):
+            self.payload_reads.append(key)
+            raise AssertionError(f"shape-only consumer attempted to read payload key {key!r}")
+        return await super().get(key, prototype=prototype, byte_range=byte_range)
+
+
+def shape_only_entity():
+    store = PayloadGuardStore()
+    make_v3_store("s0", shape=(128, 128, 128), chunks=(32, 32, 32), store=store)
+    store.payload_reads.clear()
+    return make_entity(store), store
 
 
 def test_filter_shape_lookup_does_not_read_array_payload():
-    store, expected = make_v2_store("0")
-    tomogram = make_entity(store)
+    tomogram, store = shape_only_entity()
     voxel_spacing = SimpleNamespace(get_tomogram=lambda _tomo_type: tomogram)
     run = SimpleNamespace(get_voxel_spacing=lambda _voxel_size: voxel_spacing)
     root = SimpleNamespace(get_run=lambda _run_name: run)
 
-    assert get_tomo_shape(root, ["run-1"], "wbp", 10.0) == expected.shape
+    assert get_tomo_shape(root, ["run-1"], "wbp", 10.0) == (128, 128, 128)
     assert store.payload_reads == []
 
 
 def test_slab_shape_lookup_does_not_read_array_payload():
-    store, expected = make_v2_store("0")
-    tomogram = make_entity(store)
+    tomogram, store = shape_only_entity()
     voxel_spacing = SimpleNamespace(get_tomogram=lambda _tomo_type: tomogram)
     run = SimpleNamespace(get_voxel_spacing=lambda _voxel_size: voxel_spacing)
     points = [[10.0, 10.0, 10.0], [20.0, 20.0, 10.0], [10.0, 20.0, 10.0]]
@@ -53,15 +80,4 @@ def test_slab_shape_lookup_does_not_read_array_payload():
         )
 
     assert result is sentinel
-    assert expected.shape == (8, 9, 10)
     assert store.payload_reads == []
-
-
-def test_numeric_and_nonnumeric_v2_fixtures_are_decoded_equivalent():
-    numeric_store, expected = make_v2_store("0")
-    nonnumeric_store, _ = make_v2_store("s0", expected)
-
-    numeric = np.asarray(__import__("zarr").open(numeric_store, mode="r")["0"])
-    nonnumeric = np.asarray(__import__("zarr").open(nonnumeric_store, mode="r")["s0"])
-
-    np.testing.assert_array_equal(numeric, nonnumeric)

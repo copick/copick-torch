@@ -2,6 +2,7 @@ import json
 import unittest
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import numpy as np
 
@@ -34,6 +35,7 @@ class TestMinimalCopickDataset(unittest.TestCase):
     def test_lazy_reload_retains_numeric_zarr_array(self):
         store, expected = make_v2_store("0")
         tomogram = make_entity(store)
+        tomogram.zarr = MagicMock(return_value=store)
         voxel_spacing = SimpleNamespace(tomograms=[tomogram])
         project = SimpleNamespace(
             runs=[SimpleNamespace(get_voxel_spacing=lambda _voxel_size: voxel_spacing)],
@@ -51,7 +53,7 @@ class TestMinimalCopickDataset(unittest.TestCase):
                 "preload": False,
             }
             samples = [{"point": [20, 20, 20], "label": 1, "is_background": False, "tomogram_idx": 0}]
-            tomograms = [{"index": 0, "shape": list(expected.shape), "path": "0"}]
+            tomograms = [{"index": index, "shape": list(expected.shape), "path": "0"} for index in range(3)]
             for name, value in (
                 ("metadata.json", metadata),
                 ("samples.json", samples),
@@ -64,6 +66,7 @@ class TestMinimalCopickDataset(unittest.TestCase):
 
         self.assertEqual(dataset._tomogram_data[0].shape, expected.shape)
         np.testing.assert_array_equal(dataset._tomogram_data[0][1:3, 2:4, 3:5], expected[1:3, 2:4, 3:5])
+        tomogram.zarr.assert_called_once_with()
 
 
 if __name__ == "__main__":

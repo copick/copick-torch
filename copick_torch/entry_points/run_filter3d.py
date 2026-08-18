@@ -271,7 +271,8 @@ def run_filter3d(
 
 def get_tomo_shape(root, run_ids, tomo_alg, voxel_size):
     import numpy as np
-    import zarr
+
+    from copick_torch.storage import get_level_array
 
     for runID in run_ids:
         # Get Volume Shape from First Run
@@ -284,8 +285,7 @@ def get_tomo_shape(root, run_ids, tomo_alg, voxel_size):
         tomo = vs.get_tomogram(tomo_alg)
         if tomo is None:
             continue
-        loc = tomo.zarr()
-        shape = zarr.open(loc)["0"].shape
+        shape = get_level_array(tomo).shape
         return shape
 
 
