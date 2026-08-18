@@ -70,14 +70,17 @@ def test_fourier_augment3d():
     # Test initialization
     aug = FourierAugment3D(freq_mask_prob=0.3, phase_noise_std=0.1, intensity_scaling_range=(0.8, 1.2), prob=1.0)
 
-    # Apply augmentation
-    augmented = aug(volume)
+    # Force a deterministic non-identity transform. Random behavior is covered
+    # separately by the channel-first test below.
+    aug._mask = None
+    aug._phase_noise = torch.zeros_like(volume)
+    aug._intensity_scale = 1.2
+    augmented = aug(volume, randomize=False)
 
     # Check shape preservation
     assert augmented.shape == volume.shape
 
-    # Make sure the augmentation changed the volume (not identity)
-    assert not torch.allclose(augmented, volume, rtol=1e-3, atol=1e-3)
+    assert torch.allclose(augmented, volume * 1.2, rtol=1e-3, atol=1e-3)
 
     # Test with zero phase noise and fixed intensity scale (should be close to identity
     # if there's no masking)
