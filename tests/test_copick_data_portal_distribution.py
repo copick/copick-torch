@@ -8,10 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import copick
 import numpy as np
+import pytest
 
 from copick_torch.dataset import SimpleCopickDataset
 
 
+@pytest.mark.portal
 class TestCopickDataPortalDistribution(unittest.TestCase):
     """
     Test that verifies the SimpleCopickDataset correctly preserves the
