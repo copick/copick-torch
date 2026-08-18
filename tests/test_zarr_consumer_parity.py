@@ -15,6 +15,12 @@ from copick_torch.nnunet.prepare import load_segmentation, load_volume
 from copick_torch.storage import get_level_array
 
 V3_LAYOUTS = {
+    "canonical-one-shard": {
+        "chunks": (128, 128, 128),
+        "shards": (128, 128, 128),
+        "compressors": (Shuffle(elementsize=2), ZstdCodec(level=3)),
+        "chunk_key_encoding": {"name": "v2", "separator": "/"},
+    },
     "unsharded-default-keys": {
         "chunks": (2, 3, 5),
         "compressors": None,
@@ -153,7 +159,8 @@ def test_dataset_consumers_are_equivalent_across_v2_and_v3_layouts(tmp_path, lay
     migrated_path = tmp_path / f"{layout}.zarr"
     legacy, expected = write_store(legacy_path, "legacy-v2-numeric")
     migrated, _ = write_store(migrated_path, layout)
-    before = snapshot(migrated_path)
+    legacy_before = snapshot(legacy_path)
+    migrated_before = snapshot(migrated_path)
 
     legacy_result = consume(legacy)
     migrated_result = consume(migrated)
@@ -162,4 +169,5 @@ def test_dataset_consumers_are_equivalent_across_v2_and_v3_layouts(tmp_path, lay
     for key in legacy_result:
         np.testing.assert_array_equal(migrated_result[key], legacy_result[key])
     np.testing.assert_array_equal(migrated.numpy(), expected)
-    assert snapshot(migrated_path) == before
+    assert snapshot(legacy_path) == legacy_before
+    assert snapshot(migrated_path) == migrated_before
