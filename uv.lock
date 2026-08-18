@@ -9,10 +9,10 @@ resolution-markers = [
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'win32'",
-    "python_full_version <= '3.11' and sys_platform == 'win32'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'emscripten'",
-    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version <= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
@@ -972,7 +972,7 @@ test = [
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "copick", specifier = ">=2.0.0a1,<3" },
-    { name = "copick-utils", specifier = ">=1.8.0" },
+    { name = "copick-utils", specifier = ">=2.0.0a1,<3" },
     { name = "dask" },
     { name = "einops" },
     { name = "gdown" },
@@ -1009,7 +1009,7 @@ provides-extras = ["dev", "test"]
 
 [[package]]
 name = "copick-utils"
-version = "1.8.0"
+version = "2.0.0a1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1020,6 +1020,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "mdocfile" },
     { name = "numpy" },
+    { name = "pydantic" },
     { name = "rtree" },
     { name = "scikit-image" },
     { name = "scikit-learn" },
@@ -1030,9 +1031,9 @@ dependencies = [
     { name = "zarr", version = "3.1.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "zarr", version = "3.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/c2/74dc400d9b09a443951ad98402727d9067154d1935140d70042014bd7a7d/copick_utils-1.8.0.tar.gz", hash = "sha256:fcca8a26bacf87d29ba592fa666fc917090add54d6aab63f55dd774731d3f199", size = 141376, upload-time = "2026-07-08T00:08:51.07Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/d1/ac7d527e25273cb038b777c5e232decd0fac17b174ffa93b8cb2cb460e54/copick_utils-2.0.0a1.tar.gz", hash = "sha256:8ca9d8248a9caa8ce46d0da4f722871a75b64d120a1036067f8693e400b96b2d", size = 397314, upload-time = "2026-08-18T21:27:54.121Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/df/63a5f958053b07cb92c791906b686cecac258a9d4987f0eedddf277579cf/copick_utils-1.8.0-py3-none-any.whl", hash = "sha256:b78767a7f77caf872afe65bb5a4ae7ea4bfa0525f14eb1b341fdeee87e66c579", size = 187956, upload-time = "2026-07-08T00:08:49.823Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/92/2fdc85ec922995ca9ead0430af916e4dbe87601591d7b4f8332b57cbb3de/copick_utils-2.0.0a1-py3-none-any.whl", hash = "sha256:62492dd8248b7f97f70b05fa2b3f7c7784b1a00f4933e1c6761c7c7c9d535502", size = 188595, upload-time = "2026-08-18T21:27:52.779Z" },
 ]
 
 [[package]]
@@ -2001,10 +2002,10 @@ version = "9.10.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'win32'",
-    "python_full_version <= '3.11' and sys_platform == 'win32'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'emscripten'",
-    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version <= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
@@ -5437,10 +5438,10 @@ version = "2026.3.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'win32'",
-    "python_full_version <= '3.11' and sys_platform == 'win32'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'emscripten'",
-    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version <= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
@@ -6231,10 +6232,10 @@ version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'win32'",
-    "python_full_version <= '3.11' and sys_platform == 'win32'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform == 'emscripten'",
-    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version > '3.11' and python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'win32'",
+    "python_full_version <= '3.11' and sys_platform == 'emscripten'",
     "python_full_version <= '3.11' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
