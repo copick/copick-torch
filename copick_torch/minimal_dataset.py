@@ -753,10 +753,11 @@ class MinimalCopickDataset(Dataset):
                         else:
                             tomogram = tomogram[0]
 
+                        tomo_zarr = get_level_array(tomogram)
+
                         # Find matching tomogram in info
                         for tomo_info in tomogram_info:
                             # Simple check for matching shape as a heuristic
-                            tomo_zarr = get_level_array(tomogram)
                             if list(tomo_zarr.shape) == tomo_info["shape"]:
                                 idx = tomo_info["index"]
                                 dataset._tomogram_data[idx] = tomo_zarr

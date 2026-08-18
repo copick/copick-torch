@@ -7,37 +7,7 @@ import pytest
 import zarr
 
 from copick_torch.storage import get_level_array
-from tests.storage_helpers import make_entity, make_v2_store
-
-
-def make_v3_store(dataset_path="s0", data=None):
-    if data is None:
-        data = np.arange(8 * 9 * 10, dtype=np.float32).reshape(8, 9, 10)
-
-    store = zarr.storage.MemoryStore()
-    group = zarr.open_group(store=store, mode="w", zarr_format=3)
-    group.create_array(dataset_path, data=data, chunks=(4, 4, 4))
-    group.attrs["ome"] = {
-        "version": "0.5",
-        "multiscales": [
-            {
-                "axes": [
-                    {"name": "z", "type": "space", "unit": "angstrom"},
-                    {"name": "y", "type": "space", "unit": "angstrom"},
-                    {"name": "x", "type": "space", "unit": "angstrom"},
-                ],
-                "datasets": [
-                    {
-                        "path": dataset_path,
-                        "coordinateTransformations": [
-                            {"type": "scale", "scale": [10.0, 10.0, 10.0]},
-                        ],
-                    },
-                ],
-            },
-        ],
-    }
-    return store, np.asarray(data)
+from tests.storage_helpers import make_entity, make_v2_store, make_v3_store
 
 
 @pytest.mark.parametrize("dataset_path", ["0", "s0"])
