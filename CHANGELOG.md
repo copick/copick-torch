@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.0.0-alpha.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.2.0...copick-torch-v2.0.0-alpha.1) (2026-08-18)
+
+
+### ✨ Features
+
+* resolve copick entity arrays from OME metadata ([#151](https://github.com/copick/copick-torch/issues/151)) ([7d6fb9a](https://github.com/copick/copick-torch/commit/7d6fb9a120b05099f73ae59bd95fd3247b0825cd))
+
+
+### 🐞 Bug Fixes
+
+* bump actions/setup-python from 6 to 7 ([#133](https://github.com/copick/copick-torch/issues/133)) ([d3640f1](https://github.com/copick/copick-torch/commit/d3640f19fe0ed5333f3612bbfa2ea0ceee68fc69))
+* bump chanzuckerberg/github-actions from 6.29.4 to 6.32.0 ([#135](https://github.com/copick/copick-torch/issues/135)) ([057024b](https://github.com/copick/copick-torch/commit/057024b39f988b2da7950dbdf8b28e92853f44ab))
+* bump ruff from 0.15.20 to 0.15.21 ([#129](https://github.com/copick/copick-torch/issues/129)) ([a6bd111](https://github.com/copick/copick-torch/commit/a6bd111dec751137669dd58eba028bde3bcb9921))
+* bump tox from 4.56.1 to 4.56.4 ([#130](https://github.com/copick/copick-torch/issues/130)) ([d463215](https://github.com/copick/copick-torch/commit/d4632151df4793ebffeeb45b4d7fc2ca7f22a806))
+
+
+### 🧪 Tests
+
+* establish copick-torch storage migration gate ([#150](https://github.com/copick/copick-torch/issues/150)) ([d5b881c](https://github.com/copick/copick-torch/commit/d5b881ccf36dbe6828e38d21cee8c40f0c49230c))
+* validate delegated OME-Zarr 0.5 outputs ([#153](https://github.com/copick/copick-torch/issues/153)) ([835871c](https://github.com/copick/copick-torch/commit/835871cb9cfa0634524a2623b0420d99f2624b61))
+* verify copick-torch parity across Zarr layouts ([#152](https://github.com/copick/copick-torch/issues/152)) ([f26a113](https://github.com/copick/copick-torch/commit/f26a113fdadc50b397fe0e9731c9b59a93bd5401))
+
+
+### ⚙ Continuous Integration
+
+* configure v2 alpha releases ([57a075f](https://github.com/copick/copick-torch/commit/57a075fce03728a0448e1c3df9a9d278cc7e46b7))
+
 ## [1.2.0](https://github.com/copick/copick-torch/compare/copick-torch-v1.1.1...copick-torch-v1.2.0) (2026-07-08)
 
 
