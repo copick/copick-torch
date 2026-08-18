@@ -12,12 +12,13 @@ import numpy as np
 import scipy.ndimage as ndi
 import torch
 import torch.nn.functional as F
-import zarr
 from copick.models import CopickLocation, CopickPoint
 from skimage.measure import regionprops
 from skimage.morphology import ball
 from skimage.segmentation import watershed
 from tqdm import tqdm
+
+from copick_torch.storage import get_level_array
 
 DEVICE = "cpu"
 tomo_type = "wbp"  # See where this is used for an example of how to get the denoised
@@ -181,16 +182,14 @@ def get_tomogram_data(run, voxel_spacing, radius):
         tomo_type,
         portal_meta_query={"processing": "denoised", "processing_software": "DenoisET"},
     )[0]
-    z = zarr.open(store=tomogram_wrapper.zarr(), path="/", mode="r")
-
     if radius <= RESOLUTION_THRESHOLD:
         # Use highest resolution
-        tomogram = z["0"][:]
+        tomogram = get_level_array(tomogram_wrapper, level=0)[:]
         effective_voxel_spacing = voxel_spacing
         scale_factor = 1
     else:
         # Use medium resolution
-        tomogram = z["1"][:]
+        tomogram = get_level_array(tomogram_wrapper, level=1)[:]
         effective_voxel_spacing = voxel_spacing * 2  # Scale factor is 2 for level 1
         scale_factor = 2
 

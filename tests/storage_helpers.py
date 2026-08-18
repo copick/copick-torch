@@ -4,28 +4,18 @@ import numpy as np
 import zarr
 
 
-class CountingMemoryStore(zarr.storage.MemoryStore):
-    """In-memory Zarr v2 store that records reads of array payload keys."""
-
-    def __init__(self):
-        super().__init__()
-        self.payload_reads = []
-
-    def __getitem__(self, key):
-        value = super().__getitem__(key)
-        if not key.endswith((".zarray", ".zattrs", ".zgroup")):
-            self.payload_reads.append(key)
-        return value
-
-
 def make_v2_store(dataset_path="0", data=None):
     """Build a small metadata-valid OME-Zarr 0.4 / Zarr v2 group."""
     if data is None:
         data = np.arange(8 * 9 * 10, dtype=np.float32).reshape(8, 9, 10)
 
-    store = CountingMemoryStore()
-    group = zarr.group(store=store, overwrite=True)
-    group.create_dataset(dataset_path, data=data, chunks=(4, 4, 4))
+    store = zarr.storage.MemoryStore()
+    if int(zarr.__version__.split(".", 1)[0]) >= 3:
+        group = zarr.open_group(store=store, mode="w", zarr_format=2)
+        group.create_array(dataset_path, data=data, chunks=(4, 4, 4))
+    else:
+        group = zarr.group(store=store, overwrite=True)
+        group.create_dataset(dataset_path, data=data, chunks=(4, 4, 4))
     group.attrs["multiscales"] = [
         {
             "version": "0.4",
@@ -44,7 +34,6 @@ def make_v2_store(dataset_path="0", data=None):
             ],
         },
     ]
-    store.payload_reads.clear()
     return store, np.asarray(data)
 
 

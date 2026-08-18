@@ -396,8 +396,6 @@ def slab_from_picks(
     Returns:
         Tuple of (CopickMesh, stats dict) or None if creation failed.
     """
-    import zarr
-
     try:
         points1 = _extract_pick_points(picks1)
         points2 = _extract_pick_points(picks2)
@@ -409,7 +407,9 @@ def slab_from_picks(
         # Get volume dimensions for normalization
         vs = run.get_voxel_spacing(voxel_spacing)
         tomo = vs.get_tomogram(tomo_type)
-        shape = zarr.open(tomo.zarr())["0"].shape
+        from copick_torch.storage import get_level_array
+
+        shape = get_level_array(tomo).shape
         max_dim = [d * voxel_spacing for d in shape[::-1]]  # x, y, z in physical units
 
         if method == "parallel":

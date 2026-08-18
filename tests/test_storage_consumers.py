@@ -8,20 +8,28 @@ from copick_torch.fitting.slab_from_picks import slab_from_picks
 from tests.storage_helpers import make_entity, make_v2_store
 
 
+class ShapeOnlyArray:
+    shape = (8, 9, 10)
+
+    def __getitem__(self, _selection):
+        raise AssertionError("shape-only consumer attempted to read array data")
+
+    def __array__(self, *_args, **_kwargs):
+        raise AssertionError("shape-only consumer attempted to materialize the array")
+
+
 def test_filter_shape_lookup_does_not_read_array_payload():
-    store, expected = make_v2_store("0")
-    tomogram = make_entity(store)
+    tomogram = make_entity(object())
     voxel_spacing = SimpleNamespace(get_tomogram=lambda _tomo_type: tomogram)
     run = SimpleNamespace(get_voxel_spacing=lambda _voxel_size: voxel_spacing)
     root = SimpleNamespace(get_run=lambda _run_name: run)
 
-    assert get_tomo_shape(root, ["run-1"], "wbp", 10.0) == expected.shape
-    assert store.payload_reads == []
+    with patch("copick_torch.storage.get_level_array", return_value=ShapeOnlyArray()):
+        assert get_tomo_shape(root, ["run-1"], "wbp", 10.0) == ShapeOnlyArray.shape
 
 
 def test_slab_shape_lookup_does_not_read_array_payload():
-    store, expected = make_v2_store("0")
-    tomogram = make_entity(store)
+    tomogram = make_entity(object())
     voxel_spacing = SimpleNamespace(get_tomogram=lambda _tomo_type: tomogram)
     run = SimpleNamespace(get_voxel_spacing=lambda _voxel_size: voxel_spacing)
     points = [[10.0, 10.0, 10.0], [20.0, 20.0, 10.0], [10.0, 20.0, 10.0]]
@@ -39,6 +47,7 @@ def test_slab_shape_lookup_does_not_read_array_payload():
         patch("copick_torch.fitting.slab_from_picks.evaluate_plane_on_grid", return_value=surface),
         patch("copick_torch.fitting.slab_from_picks.triangulate_box", return_value=sentinel),
         patch("copick_torch.fitting.slab_from_picks.store_mesh_with_stats", return_value=sentinel),
+        patch("copick_torch.storage.get_level_array", return_value=ShapeOnlyArray()),
     ):
         result = slab_from_picks(
             picks,
@@ -53,8 +62,6 @@ def test_slab_shape_lookup_does_not_read_array_payload():
         )
 
     assert result is sentinel
-    assert expected.shape == (8, 9, 10)
-    assert store.payload_reads == []
 
 
 def test_numeric_and_nonnumeric_v2_fixtures_are_decoded_equivalent():

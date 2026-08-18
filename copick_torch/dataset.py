@@ -11,7 +11,6 @@ import copick
 import numpy as np
 import pandas as pd
 import torch
-import zarr
 
 # Import these at module level to avoid pickling issues
 from scipy.ndimage import binary_dilation, gaussian_filter
@@ -20,6 +19,7 @@ from skimage.transform import resize
 from torch.utils.data import ConcatDataset, Dataset, Subset
 
 from .augmentations import FourierAugment3D
+from .storage import get_level_array
 
 
 class SimpleDatasetMixin:
@@ -853,8 +853,7 @@ class SplicedMixupDataset(SimpleCopickDataset):
 
             # Select the first tomogram
             exp_tomogram_obj = exp_tomograms[0]
-            exp_zarr = zarr.open(exp_tomogram_obj.zarr(), "r")
-            self._exp_zarr_data = exp_zarr["0"][:]
+            self._exp_zarr_data = get_level_array(exp_tomogram_obj)[:]
 
             # Normalize tomogram data
             self._exp_zarr_data = (self._exp_zarr_data - np.mean(self._exp_zarr_data)) / np.std(self._exp_zarr_data)
@@ -874,8 +873,7 @@ class SplicedMixupDataset(SimpleCopickDataset):
 
             # Select the first tomogram
             synth_tomogram_obj = synth_tomograms[0]
-            synth_zarr = zarr.open(synth_tomogram_obj.zarr(), "r")
-            self._synth_zarr_data = synth_zarr["0"][:]
+            self._synth_zarr_data = get_level_array(synth_tomogram_obj)[:]
 
             # Normalize tomogram data
             self._synth_zarr_data = (self._synth_zarr_data - np.mean(self._synth_zarr_data)) / np.std(
@@ -935,8 +933,7 @@ class SplicedMixupDataset(SimpleCopickDataset):
                     continue
 
                 # Access the mask data
-                mask_zarr = zarr.open(mask_obj.zarr(), "r")
-                mask_data = mask_zarr["data" if "data" in mask_zarr else "0"][:]
+                mask_data = get_level_array(mask_obj)[:]
 
                 # Store the mask data
                 self._synth_mask_data[mask_name] = mask_data

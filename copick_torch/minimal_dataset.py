@@ -11,9 +11,10 @@ from types import SimpleNamespace
 import copick
 import numpy as np
 import torch
-import zarr
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from .storage import get_level_array
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ class MinimalCopickDataset(Dataset):
                         tomogram = tomogram[0]
 
                     # Open zarr array and load it fully into memory
-                    tomogram_zarr = zarr.open(tomogram.zarr())["0"]
+                    tomogram_zarr = get_level_array(tomogram)
                     tomogram_data = np.array(tomogram_zarr[:])
                     self._tomogram_data.append(tomogram_data)
                     logger.info(f"Loaded tomogram with shape {tomogram_data.shape} into memory")
@@ -755,7 +756,7 @@ class MinimalCopickDataset(Dataset):
                         # Find matching tomogram in info
                         for tomo_info in tomogram_info:
                             # Simple check for matching shape as a heuristic
-                            tomo_zarr = zarr.open(tomogram.zarr())["0"]
+                            tomo_zarr = get_level_array(tomogram)
                             if list(tomo_zarr.shape) == tomo_info["shape"]:
                                 idx = tomo_info["index"]
                                 dataset._tomogram_data[idx] = tomo_zarr
