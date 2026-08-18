@@ -1,0 +1,29 @@
+name: Bounded public portal smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 7 * * 1"
+
+jobs:
+  portal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.7.13"
+          python-version: "3.12"
+
+      - name: Install copick-torch
+        run: uv sync --locked --extra test --extra dev
+
+      - name: Run bounded portal checks
+        env:
+          COPICK_TORCH_RUN_PORTAL: "1"
+        run: |
+          uv run pytest -vv -p no:warnings -m portal \
+            tests/test_portal_storage.py \
+            tests/test_copick_data_portal_distribution.py
