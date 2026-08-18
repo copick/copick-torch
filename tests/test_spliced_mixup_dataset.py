@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 
 from copick_torch.dataset import SplicedMixupDataset
+from tests.storage_helpers import make_entity, make_v2_store
 
 
 class TestSplicedMixupDataset(unittest.TestCase):
@@ -110,6 +111,34 @@ class TestSplicedMixupDataset(unittest.TestCase):
         # With Gaussian blending, more pixels should be affected than just the mask
         affected_pixels_gaussian = result_gaussian > 0.01
         self.assertTrue(np.sum(affected_pixels_gaussian) > np.sum(region_mask))
+
+    def test_zarr_loading_methods_use_numeric_level(self):
+        exp_store, exp = make_v2_store("0")
+        synth_store, synth = make_v2_store("0", exp + 1000)
+        mask_store, mask = make_v2_store("0", (exp % 3 == 0).astype(np.uint8))
+
+        dataset = SplicedMixupDataset.__new__(SplicedMixupDataset)
+        dataset.voxel_spacing = 10.0
+        dataset.exp_root = object()
+        dataset.synth_root = object()
+        dataset._synth_mask_data = {}
+        entities = {
+            id(dataset.exp_root): [make_entity(exp_store)],
+            id(dataset.synth_root): [make_entity(synth_store)],
+        }
+        dataset._get_available_tomograms = lambda root, _voxel_size: entities[id(root)]
+        dataset._get_segmentation_masks = lambda _root, _voxel_size: {
+            "particle": make_entity(mask_store, name="particle"),
+        }
+
+        dataset._load_experimental_zarr()
+        dataset._load_synthetic_zarr()
+        dataset._load_segmentation_masks()
+
+        np.testing.assert_allclose(dataset._exp_zarr_data.mean(), 0.0, atol=1e-6)
+        np.testing.assert_allclose(dataset._exp_zarr_data.std(), 1.0, atol=1e-6)
+        np.testing.assert_allclose(dataset._synth_zarr_data.mean(), 0.0, atol=1e-6)
+        np.testing.assert_array_equal(dataset._synth_mask_data["particle"], mask)
 
 
 if __name__ == "__main__":

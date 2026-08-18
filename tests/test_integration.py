@@ -12,6 +12,7 @@ from copick_torch.copick import CopickDataset
 TEST_CONFIG_PATH = os.environ.get("COPICK_TEST_CONFIG", "./examples/czii_object_detection_training.json")
 
 
+@pytest.mark.portal
 @pytest.mark.skipif(not os.path.exists(TEST_CONFIG_PATH), reason="Test config file not available")
 class TestIntegration(unittest.TestCase):
     """Integration tests that require actual data.
