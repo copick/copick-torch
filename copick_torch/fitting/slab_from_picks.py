@@ -345,10 +345,10 @@ def evaluate_plane_on_grid(
 
 
 def _extract_pick_points(picks: "CopickPicks") -> np.ndarray:
-    """Extract Nx3 point array from a CopickPicks object."""
+    """Extract the Nx3 particle centres (location + t, Angstrom) of a CopickPicks object."""
     arr = np.empty((len(picks.points), 3))
     for i, p in enumerate(picks.points):
-        arr[i, :] = [p.location.x, p.location.y, p.location.z]
+        arr[i, :] = [p.location.x, p.location.y, p.location.z] + np.asarray(p.transformation)[:3, 3]
     return arr
 
 
