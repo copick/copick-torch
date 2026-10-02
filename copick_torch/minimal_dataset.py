@@ -15,6 +15,8 @@ import zarr
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from .pick_utils import filament_object_names, pick_centres, skip_reason
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,6 +44,8 @@ class MinimalCopickDataset(Dataset):
         background_ratio=0.2,
         min_background_distance=None,
         preload=True,
+        include_filaments=False,
+        object_names=None,
     ):
         """
         Initialize a MinimalCopickDataset.
@@ -56,6 +60,10 @@ class MinimalCopickDataset(Dataset):
             background_ratio: Ratio of background to particle samples
             min_background_distance: Minimum distance from particles for background samples
             preload: Whether to preload all subvolumes into memory (faster but more memory intensive)
+            include_filaments: Use picks of filament objects as training samples. Picks along a filament sample one
+                continuous structure, so they are left out by default; background samples keep away from them either way.
+            object_names: Train on these objects only (None: all). Picks of other objects still keep background samples
+                away.
         """
         self.dataset_id = dataset_id
         self.overlay_root = overlay_root
@@ -65,6 +73,8 @@ class MinimalCopickDataset(Dataset):
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
         self.preload = preload
+        self.include_filaments = include_filaments
+        self.object_names = None if object_names is None else list(object_names)
 
         # Initialize data structures
         self._points = []  # List of (x, y, z) coordinates
@@ -91,7 +101,14 @@ class MinimalCopickDataset(Dataset):
         """Extract name to label mapping from pickable objects."""
         # Create mapping from object names to labels
         self._name_to_label = {}
+        self._skipped_objects = {}
+        filament_names = filament_object_names(self.copick_root.pickable_objects)
         for obj in self.copick_root.pickable_objects:
+            reason = skip_reason(obj.name, filament_names, self.object_names, self.include_filaments)
+            if reason is not None:
+                self._skipped_objects[obj.name] = reason
+                logger.info(f"Skipping picks of {obj.name}: {reason}")
+                continue
             self._name_to_label[obj.name] = obj.label
 
         # Ensure we have a consistent list of object names
@@ -136,6 +153,7 @@ class MinimalCopickDataset(Dataset):
 
                     # Store all particle coordinates for background sampling
                     all_particle_coords = []
+                    excluded_coords = []  # Picks that are not samples, which background samples still keep away from
 
                     # Initialize storage for preloaded data if preloading is enabled
                     if self.preload and not hasattr(self, "_subvolumes"):
@@ -148,6 +166,11 @@ class MinimalCopickDataset(Dataset):
 
                         object_name = picks.pickable_object_name
 
+                        # Picks that are not samples still keep background samples away
+                        if object_name in self._skipped_objects:
+                            excluded_coords.extend(pick_centres(picks))
+                            continue
+
                         # Skip objects not in our mapping
                         if object_name not in self._name_to_label:
                             logger.warning(f"Object {object_name} not in pickable objects, skipping")
@@ -156,7 +179,8 @@ class MinimalCopickDataset(Dataset):
                         class_idx = self._name_to_label[object_name]
 
                         try:
-                            points, _ = picks.numpy()
+                            # Particle centres, location + t, in Angstrom
+                            points = pick_centres(picks)
                             if len(points) == 0:
                                 logger.warning(f"No points found for {object_name}")
                                 continue
@@ -238,7 +262,7 @@ class MinimalCopickDataset(Dataset):
 
                         bg_points = self._sample_background_points(
                             tomogram_data.shape,
-                            all_particle_coords,
+                            all_particle_coords + excluded_coords,
                             num_background,
                             self.min_background_distance,
                         )
@@ -602,6 +626,8 @@ class MinimalCopickDataset(Dataset):
             "boxsize": self.boxsize,
             "voxel_spacing": self.voxel_spacing,
             "include_background": self.include_background,
+            "include_filaments": getattr(self, "include_filaments", False),
+            "object_names": getattr(self, "object_names", None),
             "background_ratio": self.background_ratio,
             "min_background_distance": self.min_background_distance,
             "name_to_label": self._name_to_label,
@@ -688,6 +714,8 @@ class MinimalCopickDataset(Dataset):
         dataset.boxsize = metadata.get("boxsize", (48, 48, 48))
         dataset.voxel_spacing = metadata.get("voxel_spacing", 10.012)
         dataset.include_background = metadata.get("include_background", False)
+        dataset.include_filaments = metadata.get("include_filaments", False)
+        dataset.object_names = metadata.get("object_names")
         dataset.background_ratio = metadata.get("background_ratio", 0.2)
         dataset.min_background_distance = metadata.get("min_background_distance")
         dataset._name_to_label = metadata.get("name_to_label", {})
