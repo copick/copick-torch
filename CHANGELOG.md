@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.2.0...copick-torch-v1.2.1) (2026-10-02)
+
+
+### 🐞 Bug Fixes
+
+* bump actions/setup-python from 6 to 7 ([#133](https://github.com/copick/copick-torch/issues/133)) ([d3640f1](https://github.com/copick/copick-torch/commit/d3640f19fe0ed5333f3612bbfa2ea0ceee68fc69))
+* bump chanzuckerberg/github-actions from 6.29.4 to 6.32.0 ([#135](https://github.com/copick/copick-torch/issues/135)) ([057024b](https://github.com/copick/copick-torch/commit/057024b39f988b2da7950dbdf8b28e92853f44ab))
+* bump chanzuckerberg/github-actions from 6.32.0 to 6.35.0 ([#143](https://github.com/copick/copick-torch/issues/143)) ([27e28ac](https://github.com/copick/copick-torch/commit/27e28ac46437e7f29b5f4df17ad5a72694a1b66d))
+* bump chanzuckerberg/github-actions from 6.35.0 to 6.41.2 ([#160](https://github.com/copick/copick-torch/issues/160)) ([4813bf1](https://github.com/copick/copick-torch/commit/4813bf15c5fb7cdfcc9dd450c06adb0ea0ed402e))
+* bump dask from 2026.3.0 to 2026.7.1 ([#145](https://github.com/copick/copick-torch/issues/145)) ([2e0b09d](https://github.com/copick/copick-torch/commit/2e0b09de50448e9fd9d1ea87a596555b2347f6b5))
+* bump matplotlib from 3.10.9 to 3.11.1 ([#148](https://github.com/copick/copick-torch/issues/148)) ([0870732](https://github.com/copick/copick-torch/commit/087073215f519cb426620863df85e3ad3c36f33c))
+* bump monai from 1.5.2 to 1.6.0 ([#112](https://github.com/copick/copick-torch/issues/112)) ([c6a70c4](https://github.com/copick/copick-torch/commit/c6a70c40125ffcdadb0312f43952f61480690c90))
+* bump pandas from 3.0.4 to 3.0.5 ([#144](https://github.com/copick/copick-torch/issues/144)) ([9e615a1](https://github.com/copick/copick-torch/commit/9e615a14a34fdd3aa98c8dc26fba7a89b5389e2d))
+* bump ruff from 0.15.20 to 0.15.21 ([#129](https://github.com/copick/copick-torch/issues/129)) ([a6bd111](https://github.com/copick/copick-torch/commit/a6bd111dec751137669dd58eba028bde3bcb9921))
+* bump scikit-learn from 1.8.0 to 1.9.0 ([#131](https://github.com/copick/copick-torch/issues/131)) ([1f3c8a6](https://github.com/copick/copick-torch/commit/1f3c8a6d21c80e372fa596b9710a1027a86d8fad))
+* bump simpleitk from 2.5.3 to 2.5.6 ([#147](https://github.com/copick/copick-torch/issues/147)) ([ce1911d](https://github.com/copick/copick-torch/commit/ce1911d539abb26b42d90805ca42f76544a75acd))
+* bump torchvision from 0.26.0 to 0.28.0 ([#128](https://github.com/copick/copick-torch/issues/128)) ([e3cac53](https://github.com/copick/copick-torch/commit/e3cac53686dd39d622767856c098ad78e12bf15b))
+* bump tox from 4.56.1 to 4.56.4 ([#130](https://github.com/copick/copick-torch/issues/130)) ([d463215](https://github.com/copick/copick-torch/commit/d4632151df4793ebffeeb45b4d7fc2ca7f22a806))
+
 ## [1.2.0](https://github.com/copick/copick-torch/compare/copick-torch-v1.1.1...copick-torch-v1.2.0) (2026-07-08)
 
 
