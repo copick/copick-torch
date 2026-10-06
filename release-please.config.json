@@ -15,6 +15,7 @@
   "packages": {
     ".": {
       "package-name": "copick-torch",
+      "extra-files": [{ "type": "generic", "path": "copick_torch/__init__.py" }],
       "tag-prefix": "v",
       "release-type": "python",
       "separate-pull-requests": true,
