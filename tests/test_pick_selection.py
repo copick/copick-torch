@@ -111,7 +111,7 @@ def test_background_keeps_away_from_skipped_filaments(dataset_class):
 
 
 def test_minimal_dataset_skips_filaments_and_uses_centres():
-    with patch("copick_torch.minimal_dataset.zarr.open", return_value={"0": TOMOGRAM}):
+    with patch("copick_torch.minimal_dataset.get_level_array", return_value=TOMOGRAM):
         dataset = MinimalCopickDataset(proj=_root(), boxsize=(8, 8, 8), voxel_spacing=VOXEL, preload=False)
         with_filaments = MinimalCopickDataset(
             proj=_root(),

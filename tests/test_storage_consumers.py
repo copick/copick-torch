@@ -53,7 +53,9 @@ def test_slab_shape_lookup_does_not_read_array_payload():
     run = SimpleNamespace(get_voxel_spacing=lambda _voxel_size: voxel_spacing)
     points = [[10.0, 10.0, 10.0], [20.0, 20.0, 10.0], [10.0, 20.0, 10.0]]
     picks = SimpleNamespace(
-        points=[SimpleNamespace(location=SimpleNamespace(x=x, y=y, z=z)) for x, y, z in points],
+        points=[
+            SimpleNamespace(location=SimpleNamespace(x=x, y=y, z=z), transformation=np.eye(4)) for x, y, z in points
+        ],
     )
     surface = np.zeros((4, 3), dtype=np.float32)
     sentinel = object()
