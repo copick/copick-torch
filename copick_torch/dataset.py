@@ -19,6 +19,7 @@ from skimage.transform import resize
 from torch.utils.data import ConcatDataset, Dataset, Subset
 
 from .augmentations import FourierAugment3D
+from .pick_utils import filament_object_names, pick_centres, selection_cache_suffix, skip_reason
 from .storage import get_level_array
 
 
@@ -81,6 +82,8 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
         include_background: bool = False,
         background_ratio: float = 0.2,
         min_background_distance: Optional[float] = None,
+        include_filaments: bool = False,
+        object_names: Optional[List[str]] = None,
         patch_strategy: str = "centered",
         debug_mode: bool = False,
         dataset_id: Optional[int] = None,
@@ -102,6 +105,10 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
             include_background: Whether to include background samples
             background_ratio: Ratio of background to particle samples
             min_background_distance: Minimum distance from particles for background samples
+            include_filaments: Use picks of filament objects as training samples. Picks along a filament sample one
+                continuous structure, so they are left out by default; background samples keep away from them either way.
+            object_names: Train on these objects only (None: all). Picks of other objects still keep background samples
+                away.
             patch_strategy: Strategy for extracting patches ('centered', 'random', or 'jittered')
             debug_mode: Whether to enable debug mode
         """
@@ -134,6 +141,8 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
         self.include_background = include_background
         self.background_ratio = background_ratio
         self.min_background_distance = min_background_distance or max(boxsize)
+        self.include_filaments = include_filaments
+        self.object_names = None if object_names is None else list(object_names)
         self.patch_strategy = patch_strategy
         self.debug_mode = debug_mode
 
@@ -200,6 +209,7 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
                 self.cache_dir,
                 f"{cache_key}_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
                 f"_{self.voxel_spacing}"
+                f"{selection_cache_suffix(self.object_names, self.include_filaments)}"
                 f"{'_with_bg' if self.include_background else ''}.pkl",
             )
         else:  # parquet
@@ -207,6 +217,7 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
                 self.cache_dir,
                 f"{cache_key}_{self.boxsize[0]}x{self.boxsize[1]}x{self.boxsize[2]}"
                 f"_{self.voxel_spacing}"
+                f"{selection_cache_suffix(self.object_names, self.include_filaments)}"
                 f"{'_with_bg' if self.include_background else ''}.parquet",
             )
 
@@ -449,6 +460,8 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
 
         # Store all particle coordinates for background sampling
         all_particle_coords = []
+        filament_names = filament_object_names(root.pickable_objects)
+        skipped_objects = set()
 
         for run in root.runs:
             print(f"Processing run: {run.name}")
@@ -472,6 +485,7 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
 
             # Process picks
             run_particle_coords = []  # Store coordinates for this run
+            run_excluded_coords = []  # Picks that are not samples, which background samples still keep away from
 
             for picks in run.get_picks():
                 if not picks.from_tool:
@@ -480,8 +494,16 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
                 object_name = picks.pickable_object_name
 
                 try:
-                    points, _ = picks.numpy()
-                    points = points / self.voxel_spacing
+                    # Particle centres, location + t, in voxels
+                    points = pick_centres(picks) / self.voxel_spacing
+
+                    reason = skip_reason(object_name, filament_names, self.object_names, self.include_filaments)
+                    if reason is not None:
+                        run_excluded_coords.extend(tuple(point) for point in points)
+                        if object_name not in skipped_objects:
+                            skipped_objects.add(object_name)
+                            print(f"Skipping picks of {object_name}: {reason}")
+                        continue
 
                     for point in points:
                         try:
@@ -509,7 +531,7 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
             # Sample background points for this run if needed
             if self.include_background and run_particle_coords:
                 all_particle_coords.extend(run_particle_coords)
-                self._sample_background_points(tomogram_array, run_particle_coords)
+                self._sample_background_points(tomogram_array, run_particle_coords, run_excluded_coords)
 
         self._subvolumes = np.array(self._subvolumes)
         self._molecule_ids = np.array(self._molecule_ids)
@@ -525,17 +547,17 @@ class SimpleCopickDataset(SimpleDatasetMixin, Dataset):
         print(f"Loaded {len(self._subvolumes)} subvolumes with {len(self._keys)} classes")
         print(f"Background samples: {sum(self._is_background)}")
 
-    def _sample_background_points(self, tomogram_array, particle_coords):
-        """Sample background points away from particles."""
+    def _sample_background_points(self, tomogram_array, particle_coords, excluded_coords=None):
+        """Sample background points away from particles and from ``excluded_coords`` (picks that are not samples)."""
         if not particle_coords:
             return
-
-        # Convert to numpy array for distance calculations
-        particle_coords = np.array(particle_coords)
 
         # Calculate number of background samples based on ratio
         num_particles = len(particle_coords)
         num_background = int(num_particles * self.background_ratio)
+
+        # Convert to numpy array for distance calculations
+        particle_coords = np.array(list(particle_coords) + list(excluded_coords or []))
 
         # Limit attempts to avoid infinite loop
         max_attempts = num_background * 10

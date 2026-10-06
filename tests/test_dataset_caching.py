@@ -52,7 +52,7 @@ class TestDatasetCaching(unittest.TestCase):
         cache_path = dataset._get_cache_path()
 
         # Expected path format
-        expected_path = os.path.join(self.cache_dir, f"{self.mock_config_path}_16x16x16_10.0.pkl")
+        expected_path = os.path.join(self.cache_dir, f"{self.mock_config_path}_16x16x16_10.0_objs-all.pkl")
 
         self.assertEqual(cache_path, expected_path)
 
@@ -71,7 +71,7 @@ class TestDatasetCaching(unittest.TestCase):
         cache_path = dataset._get_cache_path()
 
         # Expected path format
-        expected_path = os.path.join(self.cache_dir, f"{self.mock_config_path}_16x16x16_10.0_with_bg.parquet")
+        expected_path = os.path.join(self.cache_dir, f"{self.mock_config_path}_16x16x16_10.0_objs-all_with_bg.parquet")
 
         self.assertEqual(cache_path, expected_path)
 
@@ -95,7 +95,7 @@ class TestDatasetCaching(unittest.TestCase):
         cache_path = dataset._get_cache_path()
 
         # Expected path format with dataset IDs
-        expected_path = os.path.join(self.cache_dir, "datasets_123_16x16x16_10.0.parquet")
+        expected_path = os.path.join(self.cache_dir, "datasets_123_16x16x16_10.0_objs-all.parquet")
 
         self.assertEqual(cache_path, expected_path)
 
@@ -222,7 +222,7 @@ class TestDatasetCaching(unittest.TestCase):
     def test_load_or_process_data_with_cache(self, mock_load_data):
         """Test the _load_or_process_data method with an existing cache file."""
         # Create and save a cache file
-        cache_file = os.path.join(self.cache_dir, f"{self.mock_config_path}_16x16x16_10.0.pkl")
+        cache_file = os.path.join(self.cache_dir, f"{self.mock_config_path}_16x16x16_10.0_objs-all.pkl")
         with open(cache_file, "wb") as f:
             pickle.dump(
                 {
