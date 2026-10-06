@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0-alpha.3](https://github.com/copick/copick-torch/compare/copick-torch-v2.0.0-alpha.2...copick-torch-v2.0.0-alpha.3) (2026-10-06)
+
+
+### 🐞 Bug Fixes
+
+* particle centres include shifts; skip filament objects (v2.0) ([#168](https://github.com/copick/copick-torch/issues/168)) ([dbf73ef](https://github.com/copick/copick-torch/commit/dbf73ef1034f5751c0820a8d5a12e548c7a9e9e7))
+
 ## [2.0.0-alpha.2](https://github.com/copick/copick-torch/compare/copick-torch-v2.0.0-alpha.1...copick-torch-v2.0.0-alpha.2) (2026-10-06)
 
 
