@@ -1,4 +1,4 @@
-__version__ = "2.0.0-alpha.1"  # x-release-please-version
+__version__ = "2.0.0-alpha.2"  # x-release-please-version
 
 # from copick_torch.augmentations import FourierAugment3D, MixupTransform
 # from copick_torch.copick import CopickDataset
