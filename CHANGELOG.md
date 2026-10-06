@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0-alpha.2](https://github.com/copick/copick-torch/compare/copick-torch-v2.0.0-alpha.1...copick-torch-v2.0.0-alpha.2) (2026-10-06)
+
+
+### 🐞 Bug Fixes
+
+* bump the version of prereleases in copick_torch/__init__.py ([#166](https://github.com/copick/copick-torch/issues/166)) ([055f617](https://github.com/copick/copick-torch/commit/055f6178891a9c154cc50d96f0857e892e48741c))
+
 ## [2.0.0-alpha.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.2.0...copick-torch-v2.0.0-alpha.1) (2026-08-18)
 
 
