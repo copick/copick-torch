@@ -6,10 +6,10 @@ resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'emscripten'",
     "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
-    "python_full_version < '3.12' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.12' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and sys_platform == 'emscripten'",
     "python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
@@ -1011,7 +1011,7 @@ provides-extras = ["dev", "test"]
 
 [[package]]
 name = "copick-utils"
-version = "1.8.0"
+version = "1.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1031,9 +1031,9 @@ dependencies = [
     { name = "trimesh" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/c2/74dc400d9b09a443951ad98402727d9067154d1935140d70042014bd7a7d/copick_utils-1.8.0.tar.gz", hash = "sha256:fcca8a26bacf87d29ba592fa666fc917090add54d6aab63f55dd774731d3f199", size = 141376, upload-time = "2026-07-08T00:08:51.07Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/2d/95fdb555b3458e071695b8456471cdf18624e3506410e05663a131e02074/copick_utils-1.8.1.tar.gz", hash = "sha256:1aa6837d7edd3870ee404f74ee059e1f0a23893fc529a8807ff64ae7dea60b1a", size = 141487, upload-time = "2026-08-05T15:52:44.844Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/df/63a5f958053b07cb92c791906b686cecac258a9d4987f0eedddf277579cf/copick_utils-1.8.0-py3-none-any.whl", hash = "sha256:b78767a7f77caf872afe65bb5a4ae7ea4bfa0525f14eb1b341fdeee87e66c579", size = 187956, upload-time = "2026-07-08T00:08:49.823Z" },
+    { url = "https://files.pythonhosted.org/packages/97/f8/3bed4a8fe176793d8dfb228f4833db404ecc9736bc730096b48c8a10dbc0/copick_utils-1.8.1-py3-none-any.whl", hash = "sha256:1bc5acadc67c5ea49be8fa7c696a9f6d2817d77a894076f653510fa833691ea9", size = 187953, upload-time = "2026-08-05T15:52:43.105Z" },
 ]
 
 [[package]]
