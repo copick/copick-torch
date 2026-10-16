@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0-alpha.4](https://github.com/copick/copick-torch/compare/copick-torch-v2.0.0-alpha.3...copick-torch-v2.0.0-alpha.4) (2026-10-16)
+
+
+### ⚙ Continuous Integration
+
+* v2.0 release PR titles without the branch scope ([#171](https://github.com/copick/copick-torch/issues/171)) ([e979b15](https://github.com/copick/copick-torch/commit/e979b1598222bf5b9d71ec922cfd9ff5ed975098))
+
 ## [2.0.0-alpha.3](https://github.com/copick/copick-torch/compare/copick-torch-v2.0.0-alpha.2...copick-torch-v2.0.0-alpha.3) (2026-10-06)
 
 
