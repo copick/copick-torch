@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2](https://github.com/copick/copick-torch/compare/copick-torch-v1.2.1...copick-torch-v1.2.2) (2026-10-16)
+
+
+### 🐞 Bug Fixes
+
+* bump chanzuckerberg/github-actions from 6.41.2 to 6.41.3 ([#170](https://github.com/copick/copick-torch/issues/170)) ([13efae3](https://github.com/copick/copick-torch/commit/13efae384fd9ef73ebc1950c699749450374d316))
+* bump pre-commit from 4.5.1 to 4.6.2 ([#165](https://github.com/copick/copick-torch/issues/165)) ([a762881](https://github.com/copick/copick-torch/commit/a76288195671f744832aa65783da46ba2cb8d782))
+
 ## [1.2.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.2.0...copick-torch-v1.2.1) (2026-10-06)
 
 
