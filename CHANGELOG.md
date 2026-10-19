@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.2](https://github.com/copick/copick-torch/compare/copick-torch-v1.2.1...copick-torch-v1.2.2) (2026-10-19)
+
+
+### 🐞 Bug Fixes
+
+* bump chanzuckerberg/github-actions from 6.41.2 to 6.41.3 ([#170](https://github.com/copick/copick-torch/issues/170)) ([13efae3](https://github.com/copick/copick-torch/commit/13efae384fd9ef73ebc1950c699749450374d316))
+* bump chanzuckerberg/github-actions from 6.41.3 to 6.42.0 ([#174](https://github.com/copick/copick-torch/issues/174)) ([d9296b7](https://github.com/copick/copick-torch/commit/d9296b7ba4ae88170743014137590cc572fb063b))
+* bump copick-utils from 1.8.0 to 1.10.0 ([#176](https://github.com/copick/copick-torch/issues/176)) ([f543067](https://github.com/copick/copick-torch/commit/f543067286e23362cbeef5f950b03aefe9442545))
+* bump gdown from 6.1.0 to 6.4.2 ([#177](https://github.com/copick/copick-torch/issues/177)) ([0661d83](https://github.com/copick/copick-torch/commit/0661d83cf219acaf897d18eff7628d3cc5d47b8f))
+* bump pre-commit from 4.5.1 to 4.6.2 ([#165](https://github.com/copick/copick-torch/issues/165)) ([a762881](https://github.com/copick/copick-torch/commit/a76288195671f744832aa65783da46ba2cb8d782))
+* bump tox-uv from 1.35.2 to 1.37.0 ([#178](https://github.com/copick/copick-torch/issues/178)) ([ae3ccbc](https://github.com/copick/copick-torch/commit/ae3ccbca777eb753501219f6b919238021687ca6))
+
 ## [1.2.1](https://github.com/copick/copick-torch/compare/copick-torch-v1.2.0...copick-torch-v1.2.1) (2026-10-06)
 
 
