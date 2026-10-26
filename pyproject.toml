@@ -39,7 +39,7 @@ dependencies = [
     "nnunetv2",
     "SimpleITK",
     "membrain-seg",
-    "numcodecs<0.16.0",
+    "numcodecs<0.17.0",
     "pandas>=2.2.3",
     "matplotlib",
     "pyarrow>=19.0.1",
