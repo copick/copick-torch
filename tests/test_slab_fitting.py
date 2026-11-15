@@ -1,19 +1,24 @@
-"""Tests for spline/coupled slab fitting in copick_torch.fitting.slab_from_picks.
+"""Tests for spline/coupled/parallel slab fitting in copick_torch.fitting.slab_from_picks.
 
 These exercise the surface-fitting math directly (no copick I/O): the bending-energy
 regularizer, its effect on the independent ``spline`` fit, and the curved-but-parallel
 ``coupled`` fit. They back the curvature-regularization and coupled-mode additions to
-``copick convert picks2slab``.
+``copick convert picks2slab``. The ``parallel`` tests check that a slab tilted about one
+axis keeps that tilt axis in the output mesh (``picks2slab`` / ``seg2slab --method parallel``).
 """
 
 import numpy as np
+import pytest
 import torch
 from torch_cubic_spline_grids import CubicBSplineGrid2d
 
+from copick_torch.fitting import slab_from_segmentation as slab_from_segmentation_module
 from copick_torch.fitting.slab_from_picks import (
     _bending_energy,
     evaluate_coupled_on_grid,
+    evaluate_plane_on_grid,
     fit_coupled_spline_slab,
+    fit_parallel_planes_from_picks,
     fit_spline_surface,
 )
 from copick_torch.fitting.slab_from_segmentation import _extract_surface_points
@@ -179,3 +184,109 @@ def test_coupled_fit_on_extracted_surface_points():
     # Exactly-parallel surfaces -> near-constant gap, recovering the ~gap-voxel thickness.
     assert vertical_gap.std() < 5.0
     assert abs(abs(vertical_gap.mean()) - gap * vs) < 25.0
+
+
+def _plane_z(x, y, rising_along: str, z0: float, slope: float):
+    """Height of a plane tilted about one axis: z rises along x only or along y only."""
+    return z0 + slope * (x if rising_along == "x" else y)
+
+
+def _assert_corners_on_slab(vertices: np.ndarray, max_dim, bottom_z, top_z, atol: float) -> None:
+    """Check the bottom and top vertex z at each of the four (x, y) grid corners."""
+    for cx in (0.0, max_dim[0]):
+        for cy in (0.0, max_dim[1]):
+            at = np.isclose(vertices[:, 0], cx, atol=1e-3) & np.isclose(vertices[:, 1], cy, atol=1e-3)
+            zs = np.unique(vertices[at, 2].round(3))
+            expected = [bottom_z(cx, cy), top_z(cx, cy)]
+            assert len(zs) == 2, f"corner ({cx}, {cy}): expected one bottom and one top vertex, got z={zs}"
+            assert np.allclose(zs, expected, atol=atol), f"corner ({cx}, {cy}): z={zs}, expected {expected}"
+
+
+@pytest.mark.parametrize("rising_along", ["x", "y"])
+def test_parallel_planes_from_picks_keep_tilt_axis(rising_along):
+    """picks2slab parallel: planes fitted to picks tilted along one axis come out tilted along it."""
+    torch.manual_seed(0)
+    np.random.seed(0)
+    max_dim = [1200.0, 800.0, 600.0]  # x, y, z; unequal so that swapping x and y shows
+    z0, slope, gap = 150.0, 0.25, 200.0
+    n = 200
+
+    def make(z_base):
+        p = np.empty((n, 3))
+        p[:, 0] = np.random.rand(n) * max_dim[0]
+        p[:, 1] = np.random.rand(n) * max_dim[1]
+        p[:, 2] = _plane_z(p[:, 0], p[:, 1], rising_along, z_base, slope)
+        return p
+
+    normal, off_top, off_bot = fit_parallel_planes_from_picks(
+        make(z0 + gap),
+        make(z0),
+        max_dim,
+        num_iterations=500,
+        learning_rate=0.1,
+    )
+    surface_top = evaluate_plane_on_grid(normal, off_top, (10, 10), max_dim)
+    surface_bot = evaluate_plane_on_grid(normal, off_bot, (10, 10), max_dim)
+
+    # A correct fit lands within ~15 A of the true corners; swapping x and y misses them by 200-300 A.
+    _assert_corners_on_slab(
+        np.concatenate([surface_top, surface_bot]),
+        max_dim,
+        bottom_z=lambda x, y: _plane_z(x, y, rising_along, z0, slope),
+        top_z=lambda x, y: _plane_z(x, y, rising_along, z0 + gap, slope),
+        atol=30.0,
+    )
+
+
+class _StubSegmentation:
+    """Minimal stand-in for a CopickSegmentation: a label volume and its voxel size."""
+
+    def __init__(self, volume: np.ndarray, voxel_size: float):
+        self._volume = volume
+        self.voxel_size = voxel_size
+
+    def numpy(self) -> np.ndarray:
+        return self._volume
+
+
+@pytest.mark.parametrize("rising_along", ["x", "y"])
+def test_seg2slab_parallel_keeps_tilt_axis(monkeypatch, rising_along):
+    """seg2slab --method parallel: the slab mesh is tilted along the same axis as the segmentation."""
+    torch.manual_seed(0)
+    vs = 10.0
+    nz, ny, nx = 60, 40, 50
+    centre0, slope, thickness = 15.0, 0.4, 10  # voxels
+    zi, yi, xi = np.meshgrid(np.arange(nz), np.arange(ny), np.arange(nx), indexing="ij")
+    centre = _plane_z(xi, yi, rising_along, centre0, slope)
+    vol = ((zi >= centre - thickness / 2) & (zi < centre + thickness / 2)).astype(np.uint8)
+
+    captured = {}
+
+    def fake_store(run, mesh, object_name, session_id, user_id, shape_name):
+        captured["mesh"] = mesh
+        return None, {"vertices_created": len(mesh.vertices), "faces_created": len(mesh.faces)}
+
+    monkeypatch.setattr(slab_from_segmentation_module, "store_mesh_with_stats", fake_store)
+
+    result = slab_from_segmentation_module.slab_from_segmentation(
+        _StubSegmentation(vol, vs),
+        run=None,
+        object_name="slab",
+        session_id="0",
+        user_id="test",
+        method="parallel",
+        fit_resolution=(10, 10),
+    )
+    assert result is not None
+
+    # The extracted surfaces are the first/last foreground voxel of each column, about half a
+    # voxel inside the slab faces. A correct fit lands within ~10 A of the true corners; swapping
+    # x and y misses them by 160-210 A.
+    half = (thickness / 2 - 0.5) * vs
+    _assert_corners_on_slab(
+        np.asarray(captured["mesh"].vertices),
+        [nx * vs, ny * vs, nz * vs],
+        bottom_z=lambda x, y: _plane_z(x, y, rising_along, centre0 * vs, slope) - half,
+        top_z=lambda x, y: _plane_z(x, y, rising_along, centre0 * vs, slope) + half,
+        atol=30.0,
+    )

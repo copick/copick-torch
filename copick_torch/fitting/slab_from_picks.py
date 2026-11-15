@@ -334,11 +334,12 @@ def evaluate_plane_on_grid(
         torch.linspace(0, 1, fit_resolution[0]),
         indexing="ij",
     )
-    xy = torch.stack([yy, xx], dim=2).view(-1, 2)
+    # Columns are (x, y), the order fit_parallel_planes_from_picks fits the plane in.
+    xy = torch.stack([xx, yy], dim=2).view(-1, 2)
 
     points = np.empty((xy.shape[0], 3))
-    points[:, 0] = xy[:, 1].numpy() * max_dim[0]
-    points[:, 1] = xy[:, 0].numpy() * max_dim[1]
+    points[:, 0] = xy[:, 0].numpy() * max_dim[0]
+    points[:, 1] = xy[:, 1].numpy() * max_dim[1]
     points[:, 2] = _xy_to_z(xy, plane_normal, plane_offset).squeeze().detach().numpy() * max_dim[2]
 
     return points
